@@ -1,0 +1,8 @@
+config {
+  type: "table"
+}
+
+SELECT
+  *
+FROM
+  `tanelis.meps.mp_data_flat_prod`
