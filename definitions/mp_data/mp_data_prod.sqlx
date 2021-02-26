@@ -1,0 +1,42 @@
+config {
+  type: "table"
+}
+
+WITH sheets_data AS (
+  SELECT
+    name,
+    MAX(active_term) AS active_finnish_parliament,
+    ARRAY_REVERSE(ARRAY_AGG(screen_name IGNORE NULLS)) [SAFE_OFFSET(0)] AS twitter_screen_name,
+    # in case of multiple entries, the last one is read
+    SPLIT(
+      ARRAY_REVERSE(ARRAY_AGG(screen_names_old IGNORE NULLS)) [SAFE_OFFSET(0)],
+      ','
+    ) AS twitter_screen_names_old,
+    # in case of multiple entries, the last one is read
+    ARRAY_AGG(
+      (
+        SELECT
+          AS STRUCT term AS term,
+          `tanelis.functions.partyName`(party) AS party,
+          `tanelis.functions.governmentOpposition`(party, term_start) AS parliament_group,
+          term_start AS term_start,
+          term_end AS term_end,
+          active_term AS term_active
+      ) IGNORE NULLS
+    ) AS finnish_parliament,
+    ARRAY_REVERSE(ARRAY_AGG(url IGNORE NULLS)) [SAFE_OFFSET(0)] AS eduskunta_page_url
+  FROM
+    `tanelis.meps.mp_data_flat_prod`
+  GROUP BY
+    1
+)
+SELECT
+  *
+EXCEPT(twitter_screen_name, twitter_screen_names_old),
+  (
+    SELECT
+      AS STRUCT twitter_screen_name AS screen_name,
+      twitter_screen_names_old AS screen_names_old
+  ) AS twitter
+FROM
+  sheets_data
