@@ -1,6 +1,7 @@
 config {
   type: "table",
-  description: "List of members of parliament in nested format."
+  description: "List of members of parliament in nested format.",
+  tags: ["mp_data"]
 }
 
 WITH sheets_data AS (
@@ -8,12 +9,12 @@ WITH sheets_data AS (
     name,
     MAX(active_term) AS active_finnish_parliament,
     ARRAY_REVERSE(ARRAY_AGG(screen_name IGNORE NULLS)) [SAFE_OFFSET(0)] AS twitter_screen_name,
-    # in case of multiple entries, the last one is read
+    -- in case of multiple entries, the last one is read
     SPLIT(
       ARRAY_REVERSE(ARRAY_AGG(screen_names_old IGNORE NULLS)) [SAFE_OFFSET(0)],
       ','
     ) AS twitter_screen_names_old,
-    # in case of multiple entries, the last one is read
+    -- in case of multiple entries, the last one is read
     ARRAY_AGG(
       (
         SELECT

@@ -1,10 +1,11 @@
 config {
   type: "table",
-  description: "Data about the members of parliament in flat format"
+  description: "Data about the members of parliament in flat format",
+  tags: ["mp_data"]
 }
 
 SELECT
-  * EXCEPT(updated_time)
+  * EXCEPT(updated_time, dataset_updated_date)
 FROM
   ${ref("backup_mp_data_prod_flat")}
 WHERE
@@ -12,5 +13,5 @@ WHERE
     SELECT
       MAX(updated_time)
     FROM
-      ${self()}
+      ${ref("backup_mp_data_prod_flat")}
   )
