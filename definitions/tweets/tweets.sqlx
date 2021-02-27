@@ -27,35 +27,66 @@ deduplicated AS (
         id_str
     )
 ),
-  enhanced1 AS (
+enhanced1 AS (
   SELECT
-    A.* EXCEPT(full_json_string,
+    A.*
+  EXCEPT(
+      full_json_string,
       source,
       is_retweet,
       date_string,
       entities_user_mentions,
-      entities_hashtags),
+      entities_hashtags
+    ),
     REGEXP_EXTRACT(source, r"^<a\shref.+>([^<]+)") AS device_source,
-    ARRAY((
-      SELECT
-        h.screen_name
-      FROM
-        UNNEST(entities_user_mentions) h)) AS user_mentions,
+    ARRAY(
+      (
+        SELECT
+          h.screen_name
+        FROM
+          UNNEST(entities_user_mentions) h
+      )
+    ) AS user_mentions,
     -- select as an array instead of struct
-    ARRAY((
-      SELECT
-        LOWER(h.text)
-      FROM
-        UNNEST(entities_hashtags) h)) AS api_hashtags, -- select as an array instead of struct
-    B.* EXCEPT(term_start, term_end, active_term, screen_names_old)
+    ARRAY(
+      (
+        SELECT
+          LOWER(h.text)
+        FROM
+          UNNEST(entities_hashtags) h
+      )
+    ) AS api_hashtags,
+    -- select as an array instead of struct
+    B.name,
+    B.term AS parliament_term,
+    B.party,
+    B.parliament_group
   FROM
     deduplicated A
-  LEFT JOIN
-    ${ref("mp_data_prod_flat")} B
-  ON
-    A.user_screen_name = B.screen_name AND A.date >= B.term_start AND A.date <= B.term_end)
-
-SELECT
-  *
-FROM
-  enhanced1
+    LEFT JOIN ${ref("mp_data_prod_flat")} B ON A.user_screen_name = B.screen_name
+    AND A.date >= B.term_start
+    AND A.date <= B.term_end
+),
+joined AS (
+  SELECT
+    *
+  EXCEPT(
+      siteUrl,
+      fullText,
+      full_text,
+      text
+    ),
+    `tanelis.functions.fullTweetText`(
+      text,
+      fullText,
+      full_text,
+      truncated,
+      user_mentions
+    ) AS full_text,
+  FROM
+    enhanced1 A
+    LEFT JOIN `tanelis.tweets_eu.full_tweet_text` B ON A.id_str = REGEXP_EXTRACT(B.siteUrl, r".*status/(\d+)"))
+  SELECT
+    *
+  FROM
+    joined
