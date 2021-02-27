@@ -1,0 +1,10 @@
+config {
+  type: "view"
+}
+
+SELECT
+  *
+FROM
+  `tanelis.sheets.updated_list`
+WHERE
+  name IS NOT NULL

@@ -1,0 +1,14 @@
+config {
+  type: "incremental",
+  description: "Backup table for the mp details data. When the prod table is updated by updating the sheets, the old version of the table will remain stored in this table.",
+  bigquery: {
+    partitionBy: "updated_date"
+  }
+}
+
+select
+  current_datetime() as updated_time,
+  current_date() as updated_date,
+  *
+from
+  ${ref("edited_mp_list")} ${when(incremental(), `WHERE current_datetime() > (SELECT MAX(updated_time) FROM ${self()})`)}

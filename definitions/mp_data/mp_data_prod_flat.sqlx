@@ -4,6 +4,13 @@ config {
 }
 
 SELECT
-  *
+  * EXCEPT(updated_time)
 FROM
-  `tanelis.meps.mp_data_flat_prod`
+  ${ref("backup_mp_data_prod_flat")}
+WHERE
+  updated_time = (
+    SELECT
+      MAX(updated_time)
+    FROM
+      ${self()}
+  )
