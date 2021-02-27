@@ -5,7 +5,10 @@ config {
 }
 
 SELECT
-  * EXCEPT(updated_time, dataset_updated_date)
+  *
+EXCEPT(updated_time, dataset_updated_date, party),
+  `tanelis.functions.partyName`(party) AS party,
+  `tanelis.functions.governmentOpposition`(party, term_start) AS parliament_group,
 FROM
   ${ref("backup_mp_data_prod_flat")}
 WHERE

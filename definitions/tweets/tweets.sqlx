@@ -46,13 +46,14 @@ deduplicated AS (
       SELECT
         LOWER(h.text)
       FROM
-        UNNEST(entities_hashtags) h)) AS api_hashtags -- select as an array instead of struct
+        UNNEST(entities_hashtags) h)) AS api_hashtags, -- select as an array instead of struct
+    B.* EXCEPT(term_start, term_end, active_term, screen_names_old)
   FROM
     deduplicated A
   LEFT JOIN
     ${ref("mp_data_prod_flat")} B
   ON
-    A.user_screen_name = B.screen_name)
+    A.user_screen_name = B.screen_name AND A.date >= B.term_start AND A.date <= B.term_end)
 
 SELECT
   *

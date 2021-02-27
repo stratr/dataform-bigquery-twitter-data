@@ -19,8 +19,8 @@ WITH sheets_data AS (
       (
         SELECT
           AS STRUCT term AS term,
-          `tanelis.functions.partyName`(party) AS party,
-          `tanelis.functions.governmentOpposition`(party, term_start) AS parliament_group,
+          party AS party,
+          parliament_group AS parliament_group,
           term_start AS term_start,
           term_end AS term_end,
           active_term AS term_active
