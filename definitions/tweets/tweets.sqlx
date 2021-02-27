@@ -67,6 +67,8 @@ enhanced1 AS (
     AND A.date >= B.term_start
     AND A.date <= B.term_end
 ),
+-- join the different tweet text fields into one proper one
+-- make encoded version of the mentions array
 joined AS (
   SELECT
     *
@@ -83,10 +85,17 @@ joined AS (
       truncated,
       user_mentions
     ) AS full_text,
+    ARRAY(
+      SELECT
+        `tanelis.functions.encodeMention`(parliament_group, mention)
+      FROM
+        UNNEST(user_mentions) AS mention
+    ) AS mention_encoded
   FROM
     enhanced1 A
-    LEFT JOIN `tanelis.tweets_eu.full_tweet_text` B ON A.id_str = REGEXP_EXTRACT(B.siteUrl, r".*status/(\d+)"))
-  SELECT
-    *
-  FROM
-    joined
+    LEFT JOIN `tanelis.tweets_eu.full_tweet_text` B ON A.id_str = REGEXP_EXTRACT(B.siteUrl, r".*status/(\d+)")
+)
+SELECT
+  *
+FROM
+  joined
