@@ -1,0 +1,60 @@
+config {
+  type: "incremental"
+}
+
+WITH
+-- deduplicate the raw data, this part should be fine
+deduplicated AS (
+  SELECT
+    ROW [
+  OFFSET
+    (0)].*
+  FROM
+    (
+      SELECT
+        ARRAY_AGG(
+          t
+          ORDER BY
+            id_str DESC
+          LIMIT
+            1
+        ) ROW
+      FROM
+        `tanelis.tweets_eu.raw_tweets` t
+      WHERE
+        date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+      GROUP BY
+        id_str
+    )
+),
+  enhanced1 AS (
+  SELECT
+    A.* EXCEPT(full_json_string,
+      source,
+      is_retweet,
+      date_string,
+      entities_user_mentions,
+      entities_hashtags),
+    REGEXP_EXTRACT(source, r"^<a\shref.+>([^<]+)") AS device_source,
+    ARRAY((
+      SELECT
+        h.screen_name
+      FROM
+        UNNEST(entities_user_mentions) h)) AS user_mentions,
+    -- select as an array instead of struct
+    ARRAY((
+      SELECT
+        LOWER(h.text)
+      FROM
+        UNNEST(entities_hashtags) h)) AS api_hashtags -- select as an array instead of struct
+  FROM
+    deduplicated A
+  LEFT JOIN
+    ${ref("mp_data_prod_flat")} B
+  ON
+    A.user_screen_name = B.screen_name)
+
+SELECT
+  *
+FROM
+  enhanced1
