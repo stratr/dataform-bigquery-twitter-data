@@ -3,7 +3,8 @@ config {
   tags: ["tweets"],
   description: "Data source table with all the collected tweets. Only tweets from MPs who were active during posting the tweet. No re-tweets. Data includes all the other possible data about the MPs as well.",
   bigquery: {
-    partitionBy: "date"
+    partitionBy: "date",
+    clusterBy: ["parliament_group", "party"]
   },
 }
 
