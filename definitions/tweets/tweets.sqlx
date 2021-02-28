@@ -8,6 +8,10 @@ config {
   },
 }
 
+-- TODO:
+-- - make the deduplication in a more understandable way
+-- For example, just the last occurance of a specific tweet id_st
+-- Query needs to be validated so that it only contains the tweets that it's supposed to contain
 WITH
 -- deduplicate the raw data, this part should be fine
 deduplicated AS (
@@ -30,8 +34,8 @@ deduplicated AS (
         ${
           when(incremental(),
             `where date >= (select max(date) from ${self()}) and
-                CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
-                ${self()})`)
+                                CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
+                                ${self()})`)
         }
       GROUP BY
         id_str
@@ -45,6 +49,7 @@ enhanced1 AS (
       full_json_string,
       source,
       is_retweet,
+      -- the is_retweet dimension in the raw_data has not been collected since the start
       date_string,
       entities_user_mentions,
       entities_hashtags
@@ -98,7 +103,7 @@ joined AS (
       full_text,
       truncated,
       user_mentions
-    ) AS full_text,
+    ) AS full_text, -- it's a bit misleading to use the same full_text name here as what comes from the API. Here the dimension is fixed and all the different versions from old data are combined
     ARRAY(
       SELECT
         `tanelis.functions.encodeMention`(parliament_group, mention)
@@ -106,20 +111,26 @@ joined AS (
         UNNEST(user_mentions) AS mention
     ) AS mentions_encoded,
     `tanelis.functions.extractHashtags`(truncated, api_hashtags, full_text) AS hashtags,
+    `tanelis.functions.extractWords`(full_text) AS words
+  FROM
+    enhanced1 A
+    LEFT JOIN `tanelis.tweets_eu.full_tweet_text` B ON A.id_str = REGEXP_EXTRACT(B.siteUrl, r".*status/(\d+)")
+),
+joined2 AS (
+  SELECT
+    *,
     IF (
       REGEXP_CONTAINS(full_text, r"RT\s@"),
       TRUE,
       FALSE
     ) AS is_retweet,
-    `tanelis.functions.extractWords`(full_text) AS words
   FROM
-    enhanced1 A
-    LEFT JOIN `tanelis.tweets_eu.full_tweet_text` B ON A.id_str = REGEXP_EXTRACT(B.siteUrl, r".*status/(\d+)")
+    joined
 )
 SELECT
   *
 FROM
-  joined
-WHERE
-  is_retweet = FALSE
+  joined2
+  WHERE
+    is_retweet = FALSE
   -- only original tweets in this table
