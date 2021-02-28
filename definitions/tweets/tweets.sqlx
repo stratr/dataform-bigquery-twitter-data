@@ -9,9 +9,9 @@ config {
 }
 
 -- TODO:
--- - make the deduplication in a more understandable way
--- For example, just the last occurance of a specific tweet id_st
--- Query needs to be validated so that it only contains the tweets that it's supposed to contain
+-- looks like the joins are duplicating some of the tweets (very few)
+-- filter out all the tweets that are not from an active MP
+
 WITH
 -- deduplicate the raw data, this part should be fine
 raw_data AS (
