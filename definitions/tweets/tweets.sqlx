@@ -12,9 +12,8 @@ config {
 -- looks like the joins are duplicating some of the tweets (very few)
 -- filter out all the tweets that are not from an active MP
 
-WITH
--- deduplicate the raw data, this part should be fine
-raw_data AS (
+
+WITH raw_data AS (
   SELECT
     *,
     ROW_NUMBER() OVER(PARTITION BY id_str) as insert_row
@@ -24,8 +23,8 @@ raw_data AS (
     ${
       when(incremental(),
         `where date >= (select max(date) from ${self()}) and
-                                                    CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
-                                                    ${self()})`)
+                                                        CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
+                                                        ${self()})`)
     }
 ),
 enhanced1 AS (

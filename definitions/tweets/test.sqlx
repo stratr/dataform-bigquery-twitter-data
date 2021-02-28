@@ -1,7 +1,0 @@
-config {
-  type: "incremental"
-}
-
--- select *
--- from ${ref("source_table")}
--- ${when(incremental(), `where timestamp > (select max(timestamp) from ${self()})`)}
