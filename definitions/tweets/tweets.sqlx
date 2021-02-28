@@ -26,12 +26,12 @@ deduplicated AS (
         ) ROW
       FROM
         `tanelis.tweets_eu.raw_tweets` t
-      WHERE
-        date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
-        -- ${when(incremental(),
-        -- `where date >= (select max(date) from ${self()}) and
-        -- CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
-        -- ${self()})`)}
+        ${
+          when(incremental(),
+            `where date >= (select max(date) from ${self()}) and
+                CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
+                ${self()})`)
+        }
       GROUP BY
         id_str
     )
