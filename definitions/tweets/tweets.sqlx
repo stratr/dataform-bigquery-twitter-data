@@ -14,32 +14,19 @@ config {
 -- Query needs to be validated so that it only contains the tweets that it's supposed to contain
 WITH
 -- deduplicate the raw data, this part should be fine
-deduplicated AS (
+raw_data AS (
   SELECT
-    ROW [
-  OFFSET
-    (0)].*
+    *,
+    ROW_NUMBER() OVER(PARTITION BY id_str) as insert_row
+    -- assign a row number to same id_strs to deduplicate the data
   FROM
-    (
-      SELECT
-        ARRAY_AGG(
-          t
-          ORDER BY
-            id_str DESC
-          LIMIT
-            1
-        ) ROW
-      FROM
-        `tanelis.tweets_eu.raw_tweets` t
-        ${
-          when(incremental(),
-            `where date >= (select max(date) from ${self()}) and
-                                CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
-                                ${self()})`)
-        }
-      GROUP BY
-        id_str
-    )
+    `tanelis.tweets_eu.raw_tweets`
+    ${
+      when(incremental(),
+        `where date >= (select max(date) from ${self()}) and
+                                                    CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
+                                                    ${self()})`)
+    }
 ),
 enhanced1 AS (
   SELECT
@@ -78,11 +65,13 @@ enhanced1 AS (
     B.party,
     B.parliament_group
   FROM
-    deduplicated A
+    raw_data A
     --resolve instead of ref: it 's not desired that updating the tweet table would by default also update the mp data tables
     LEFT JOIN ${resolve("mp_data_prod_flat")} B ON A.user_screen_name = B.screen_name
     AND A.date >= B.term_start
     AND A.date <= B.term_end
+  WHERE
+    insert_row = 1
 ),
 -- join the different tweet text fields into one proper one
 -- make encoded version of the mentions array
@@ -103,7 +92,8 @@ joined AS (
       full_text,
       truncated,
       user_mentions
-    ) AS full_text, -- it's a bit misleading to use the same full_text name here as what comes from the API. Here the dimension is fixed and all the different versions from old data are combined
+    ) AS full_text,
+    -- it's a bit misleading to use the same full_text name here as what comes from the API. Here the dimension is fixed and all the different versions from old data are combined
     ARRAY(
       SELECT
         `tanelis.functions.encodeMention`(parliament_group, mention)
@@ -131,6 +121,6 @@ SELECT
   *
 FROM
   joined2
-  WHERE
-    is_retweet = FALSE
+WHERE
+  is_retweet = FALSE
   -- only original tweets in this table
