@@ -1,6 +1,10 @@
 config {
   type: "incremental",
-  tags: ["tweets"]
+  tags: ["tweets"],
+  description: "Data source table with all the collected tweets. Only tweets from MPs who were active during posting the tweet. No re-tweets. Data includes all the other possible data about the MPs as well.",
+  bigquery: {
+    partitionBy: "date"
+  },
 }
 
 WITH
@@ -24,18 +28,23 @@ deduplicated AS (
         `tanelis.tweets_eu.raw_tweets` t
       WHERE
         date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+        -- ${when(incremental(),
+        -- `where date >= (select max(date) from ${self()}) and
+        -- CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
+        -- ${self()})`)}
       GROUP BY
         id_str
     )
 ),
 enhanced1 AS (
   SELECT
+    PARSE_DATETIME('%a %b %d %H:%M:%S +0000 %Y', date_string) as date_time,
     A.*
   EXCEPT(
       full_json_string,
       source,
       is_retweet,
-      date_string,
+      -- date_string,
       entities_user_mentions,
       entities_hashtags
     ),
@@ -64,39 +73,51 @@ enhanced1 AS (
     B.parliament_group
   FROM
     deduplicated A
-    LEFT JOIN ${ref("mp_data_prod_flat")} B ON A.user_screen_name = B.screen_name
+    --resolve instead of ref: it 's not desired that updating the tweet table would by default also update the mp data tables
+    LEFT JOIN ${resolve("mp_data_prod_flat")} B ON A.user_screen_name = B.screen_name
     AND A.date >= B.term_start
-    AND A.date <= B.term_end
-),
--- join the different tweet text fields into one proper one
--- make encoded version of the mentions array
-joined AS (
+    AND A.date <= B.term_end),
+    -- join the different tweet text fields into one proper one
+    -- make encoded version of the mentions array
+    joined AS (
+      SELECT
+        *
+      EXCEPT(
+          siteUrl,
+          fullText,
+          full_text,
+          text,
+          api_hashtags,
+          truncated
+        ),
+        `tanelis.functions.fullTweetText`(
+          text,
+          fullText,
+          full_text,
+          truncated,
+          user_mentions
+        ) AS full_text,
+        ARRAY(
+          SELECT
+            `tanelis.functions.encodeMention`(parliament_group, mention)
+          FROM
+            UNNEST(user_mentions) AS mention
+        ) AS mentions_encoded,
+        `tanelis.functions.extractHashtags`(truncated, api_hashtags, full_text) AS hashtags,
+        IF (
+          REGEXP_CONTAINS(full_text, r"RT\s@"),
+          TRUE,
+          FALSE
+        ) AS is_retweet,
+        `tanelis.functions.extractWords`(full_text) AS words
+      FROM
+        enhanced1 A
+        LEFT JOIN `tanelis.tweets_eu.full_tweet_text` B ON A.id_str = REGEXP_EXTRACT(B.siteUrl, r".*status/(\d+)")
+    )
   SELECT
     *
-  EXCEPT(
-      siteUrl,
-      fullText,
-      full_text,
-      text
-    ),
-    `tanelis.functions.fullTweetText`(
-      text,
-      fullText,
-      full_text,
-      truncated,
-      user_mentions
-    ) AS full_text,
-    ARRAY(
-      SELECT
-        `tanelis.functions.encodeMention`(parliament_group, mention)
-      FROM
-        UNNEST(user_mentions) AS mention
-    ) AS mention_encoded
   FROM
-    enhanced1 A
-    LEFT JOIN `tanelis.tweets_eu.full_tweet_text` B ON A.id_str = REGEXP_EXTRACT(B.siteUrl, r".*status/(\d+)")
-)
-SELECT
-  *
-FROM
-  joined
+    joined
+  WHERE
+    is_retweet = FALSE
+    -- only original tweets in this table
