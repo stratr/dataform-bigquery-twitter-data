@@ -11,9 +11,22 @@ config {
 -- TODO:
 -- looks like the joins are duplicating some of the tweets (very few)
 -- filter out all the tweets that are not from an active MP
-
-
-WITH raw_data AS (
+WITH mp_data AS (
+  select
+    *,
+    array_concat(
+      if(screen_name is not null, [screen_name], []),
+      array(
+        select
+          sn
+        from
+          unnest(split(screen_names_old, ',')) as sn
+      )
+    ) as all_screen_names
+  from
+    ${resolve('mp_data_prod_flat')}
+),
+raw_data AS (
   SELECT
     *,
     ROW_NUMBER() OVER(PARTITION BY id_str) as insert_row
@@ -23,8 +36,8 @@ WITH raw_data AS (
     ${
       when(incremental(),
         `where date >= (select max(date) from ${self()}) and
-                                                        CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
-                                                        ${self()})`)
+                                                                CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
+                                                                ${self()})`)
     }
 ),
 enhanced1 AS (
@@ -66,9 +79,11 @@ enhanced1 AS (
   FROM
     raw_data A
     --resolve instead of ref: it 's not desired that updating the tweet table would by default also update the mp data tables
-    LEFT JOIN ${resolve("mp_data_prod_flat")} B ON A.user_screen_name = B.screen_name
-    AND A.date >= B.term_start
-    AND A.date <= B.term_end
+    LEFT JOIN mp_data B ON (
+      A.user_screen_name IN (select * from unnest(B.all_screen_names))
+      AND A.date >= B.term_start
+      AND A.date <= B.term_end
+    )
   WHERE
     insert_row = 1
 ),
