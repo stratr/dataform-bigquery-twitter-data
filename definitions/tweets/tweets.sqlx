@@ -10,7 +10,6 @@ config {
 
 -- TODO:
 -- looks like the joins are duplicating some of the tweets (very few)
--- filter out all the tweets that are not from an active MP
 WITH mp_data AS (
   select
     *
@@ -64,7 +63,8 @@ enhanced1 AS (
       -- the is_retweet dimension in the raw_data has not been collected since the start
       date_string,
       entities_user_mentions,
-      entities_hashtags
+      entities_hashtags,
+      insert_row
     ),
     REGEXP_EXTRACT(source, r"^<a\shref.+>([^<]+)") AS device_source,
     ARRAY(
