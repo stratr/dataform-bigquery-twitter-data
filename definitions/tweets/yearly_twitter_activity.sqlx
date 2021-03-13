@@ -1,0 +1,22 @@
+config {
+  type: "view"
+}
+
+select
+  extract(
+    YEAR
+    from
+      date
+  ) as year,
+  name,
+  party,
+  parliament_group,
+  sum(tweets) as tweets,
+  if(sum(tweets) = 0, 'ei aktiivinen', 'aktiivinen') as twitter_activity_status
+from
+  ${resolve('tweets_per_day')}
+group by
+  1,
+  2,
+  3,
+  4
