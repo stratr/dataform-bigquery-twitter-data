@@ -1,0 +1,50 @@
+config {
+  type: "incremental",
+  tags: [],
+  description: "Tweets per day from each member of parliament.",
+  bigquery: {
+    partitionBy: "date",
+    clusterBy: ["name"]
+  },
+}
+
+with tweets_daily as (
+  select
+    date,
+    name,
+    COUNT(DISTINCT id_str) as tweets
+  from
+    ${ref("tweets")} ${when(incremental(), `where date > (select max(date) from ${self()}) and date < current_date()`)}
+  group by
+    date,
+    name
+),
+members as (
+  select
+    *,
+    GENERATE_DATE_ARRAY(
+      DATE('2019-10-08'),
+      CURRENT_DATE()-1,
+      INTERVAL 1 DAY
+    ) as dates
+  from
+    ${resolve('mp_data_prod_flat')}
+),
+members_unnest as (
+  select
+    *
+  except(dates)
+  from
+    members,
+    unnest(dates) as date
+  where
+    date >= term_start
+    and date <= term_end
+)
+select
+  A.*,
+  coalesce(B.tweets, 0) as tweets
+from
+  members_unnest A
+  left join tweets_daily B on A.date = B.date
+  and A.name = B.name

@@ -8,10 +8,6 @@ config {
   },
 }
 
--- TODO:
--- looks like the joins are duplicating some of the tweets (very few)
--- duplication happens in the joined sub query
-
 WITH mp_data AS (
   select
     *
