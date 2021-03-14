@@ -4,8 +4,6 @@ config {
 
 js {
   const groupFields = [
-    'name',
-    'screen_name',
     'party',
     'parliament_group'
   ];
@@ -45,15 +43,10 @@ joined_data as (
     rank() over(
       order by
         B.tweets desc
-    ) as activity_rank_previous,
-    rank() over(
-      partition by A.party
-      order by
-        A.tweets desc
-    ) as activity_rank_party
+    ) as activity_rank_previous
   from
     previous30 A
-    left join preceding30 B using(name)
+    left join preceding30 B using(party)
 )
 select
   *,
