@@ -12,6 +12,8 @@ select
   party,
   parliament_group,
   sum(tweets) as tweets,
+  1 as members,
+  if(sum(tweets) = 0, 0, 1) as active_members,
   if(sum(tweets) = 0, 'ei aktiivinen', 'aktiivinen') as twitter_activity_status
 from
   ${resolve('tweets_per_day')}

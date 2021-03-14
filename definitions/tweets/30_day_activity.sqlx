@@ -1,0 +1,45 @@
+config {
+  type: "view"
+}
+
+with previous30 as (
+  select
+    name,
+    screen_name,
+    party,
+    parliament_group,
+    sum(tweets) as tweets
+  from
+    ${resolve('tweets_per_day')}
+  where
+    date >= current_date() -31
+  group by
+    1,
+    2,
+    3,
+    4
+),
+preceding30 as (
+  select
+    name,
+    screen_name,
+    party,
+    parliament_group,
+    sum(tweets) as tweets
+  from
+    ${resolve('tweets_per_day')}
+  where
+    date >= current_date() -61
+    and date < current_date() -31
+  group by
+    1,
+    2,
+    3,
+    4
+)
+select
+  A.*,
+  B.tweets as tweets_previous
+from
+  previous30 A
+  left join preceding30 B using(name)
