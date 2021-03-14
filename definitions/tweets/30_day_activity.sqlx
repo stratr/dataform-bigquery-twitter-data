@@ -62,16 +62,16 @@ select
   *,
   (
     case
-      when activity_rank - activity_rank_previous = 0 then '-'
-      when activity_rank - activity_rank_previous > 0 then '+' || cast(
-        (activity_rank - activity_rank_previous) as STRING
+      when (activity_rank_previous - activity_rank) = 0 then '-'
+      when (activity_rank_previous - activity_rank) > 0 then '+' || cast(
+        (activity_rank_previous - activity_rank) as STRING
       )
-      when activity_rank - activity_rank_previous < 0 then cast(
-        (activity_rank - activity_rank_previous) as STRING
+      when (activity_rank_previous - activity_rank) < 0 then cast(
+        (activity_rank_previous - activity_rank) as STRING
       )
     end
   ) as activity_rank_change,
   tweets - tweets_previous as activity_change
 from
   joined_data
-  --order by activity_rank
+  order by activity_rank
