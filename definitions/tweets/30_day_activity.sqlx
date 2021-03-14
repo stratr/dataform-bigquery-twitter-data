@@ -48,7 +48,12 @@ joined_data as (
     rank() over(
       order by
         B.tweets desc
-    ) as activity_rank_previous
+    ) as activity_rank_previous,
+    rank() over(
+      partition by A.party
+      order by
+        A.tweets desc
+    ) as activity_rank_party
   from
     previous30 A
     left join preceding30 B using(name)
@@ -58,10 +63,15 @@ select
   (
     case
       when activity_rank - activity_rank_previous = 0 then '-'
-      when activity_rank - activity_rank_previous > 0 then '+'||cast((activity_rank - activity_rank_previous) as STRING)
-      when activity_rank - activity_rank_previous < 0 then cast((activity_rank - activity_rank_previous) as STRING)
+      when activity_rank - activity_rank_previous > 0 then '+' || cast(
+        (activity_rank - activity_rank_previous) as STRING
+      )
+      when activity_rank - activity_rank_previous < 0 then cast(
+        (activity_rank - activity_rank_previous) as STRING
+      )
     end
   ) as activity_rank_change,
-  tweets-tweets_previous as activity_change
+  tweets - tweets_previous as activity_change
 from
   joined_data
+  --order by activity_rank
