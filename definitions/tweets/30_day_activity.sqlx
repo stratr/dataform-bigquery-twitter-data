@@ -36,10 +36,32 @@ preceding30 as (
     2,
     3,
     4
+),
+joined_data as (
+  select
+    A.*,
+    B.tweets as tweets_previous,
+    rank() over(
+      order by
+        A.tweets desc
+    ) as activity_rank,
+    rank() over(
+      order by
+        B.tweets desc
+    ) as activity_rank_previous
+  from
+    previous30 A
+    left join preceding30 B using(name)
 )
 select
-  A.*,
-  B.tweets as tweets_previous
+  *,
+  (
+    case
+      when activity_rank - activity_rank_previous = 0 then '-'
+      when activity_rank - activity_rank_previous > 0 then '+'||cast((activity_rank - activity_rank_previous) as STRING)
+      when activity_rank - activity_rank_previous < 0 then cast((activity_rank - activity_rank_previous) as STRING)
+    end
+  ) as activity_rank_change,
+  tweets-tweets_previous as activity_change
 from
-  previous30 A
-  left join preceding30 B using(name)
+  joined_data
