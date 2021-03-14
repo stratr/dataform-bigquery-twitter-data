@@ -1,6 +1,6 @@
 config {
   type: "incremental",
-  tags: [],
+  tags: ['daily'],
   description: "Tweets per day from each member of parliament.",
   bigquery: {
     partitionBy: "date",
