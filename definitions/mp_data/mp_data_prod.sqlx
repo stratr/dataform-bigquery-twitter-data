@@ -40,7 +40,7 @@ EXCEPT(twitter_screen_name, twitter_screen_names_old),
       AS STRUCT twitter_screen_name AS screen_name,
       twitter_screen_names_old AS screen_names_old
   ) AS twitter,
-  '?' || `tanelis.functions.url_encode`(
+  'https://datastudio.google.com/u/0/reporting/0c5ed213-ffc6-432b-85bc-4fd032056bbe/page/Mky6B?' || `tanelis.functions.url_encode`(
     concat(
       'params={"df337":"include%EE%80%800%EE%80%80IN%EE%80%80',
       `tanelis.functions.url_encode`(name),
