@@ -39,6 +39,13 @@ EXCEPT(twitter_screen_name, twitter_screen_names_old),
     SELECT
       AS STRUCT twitter_screen_name AS screen_name,
       twitter_screen_names_old AS screen_names_old
-  ) AS twitter
+  ) AS twitter,
+  '?' || `tanelis.functions.url_encode`(
+    concat(
+      'params={"df337":"include%EE%80%800%EE%80%80IN%EE%80%80',
+      `tanelis.functions.url_encode`(name),
+      '"}'
+    )
+  ) as datastudio_filter
 FROM
   sheets_data
