@@ -1,0 +1,27 @@
+config {
+  type: "view"
+}
+
+select
+  name,
+  active_finnish_parliament,
+  p.term_start,
+  p.term_end,
+  p.term_active as active_term,
+  p.term,
+  p.party,
+  p.parliament_group,
+  eduskunta_page_url,
+  datastudio_filter,
+  twitter.screen_name,
+  array_concat(
+    if(
+      twitter.screen_name is not null,
+      [twitter.screen_name],
+      []
+    ),
+    twitter.screen_names_old
+  ) as all_screen_names
+from
+  ${resolve('mp_data_prod')},
+  unnest(finnish_parliament) as p

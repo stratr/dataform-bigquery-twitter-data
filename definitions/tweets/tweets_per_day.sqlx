@@ -28,7 +28,7 @@ members as (
       INTERVAL 1 DAY
     ) as dates
   from
-    ${resolve('mp_data_prod_flat')}
+    ${resolve('mp_data_flattened_term_view')}
 ),
 members_unnest as (
   select

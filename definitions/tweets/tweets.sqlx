@@ -10,28 +10,18 @@ config {
 
 WITH mp_data AS (
   select
-    *
-  except(screen_name, screen_names_old),
-    array_concat(
-      if(screen_name is not null, [screen_name], []),
-      array(
-        select
-          sn
-        from
-          unnest(split(screen_names_old, ',')) as sn
-      )
-    ) as all_screen_names
+    * except(screen_name)
   from
-    ${resolve('mp_data_prod_flat')}
+    ${resolve('mp_data_flattened_term_view')}
   where
     not (
-      screen_name is null
-      and screen_names_old is null
+      array_length(all_screen_names) = 0
     )
 ),
 mp_data_flattened as (
   select
-    * except(all_screen_names)
+    *
+  except(all_screen_names)
   from
     mp_data,
     unnest(all_screen_names) as screen_name
@@ -46,8 +36,8 @@ raw_data AS (
     ${
       when(incremental(),
         `where date >= (select max(date) from ${self()}) and
-                                                                        CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
-                                                                        ${self()})`)
+                                                                            CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
+                                                                            ${self()})`)
     }
 ),
 enhanced1 AS (
@@ -86,7 +76,8 @@ enhanced1 AS (
     B.name,
     B.term AS parliament_term,
     B.party,
-    B.parliament_group
+    B.parliament_group,
+    B.datastudio_filter
   FROM
     raw_data A
     --resolve instead of ref: it 's not desired that updating the tweet table would by default also update the mp data tables
