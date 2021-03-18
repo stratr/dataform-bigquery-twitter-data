@@ -31,14 +31,28 @@ WITH sheets_data AS (
     ${ref("mp_data_prod_flat")}
   GROUP BY
     1
+),
+twitter_image as (
+  select
+    user_screen_name,
+    array_agg(
+      user_image ignore nulls
+      order by
+        date desc
+    ) [safe_offset(0)] as user_image
+  from
+    ${resolve('tweets')}
+  group by
+    user_screen_name
 )
 SELECT
-  *
+  A.*
 EXCEPT(twitter_screen_name, twitter_screen_names_old),
   (
     SELECT
       AS STRUCT twitter_screen_name AS screen_name,
-      twitter_screen_names_old AS screen_names_old
+      twitter_screen_names_old AS screen_names_old,
+      B.user_image
   ) AS twitter,
   'https://datastudio.google.com/u/0/reporting/0c5ed213-ffc6-432b-85bc-4fd032056bbe/page/Mky6B?' || `tanelis.functions.url_encode`(
     concat(
@@ -48,4 +62,5 @@ EXCEPT(twitter_screen_name, twitter_screen_names_old),
     )
   ) as datastudio_filter
 FROM
-  sheets_data
+  sheets_data A
+  left join twitter_image B on A.twitter_screen_name = B.user_screen_name
