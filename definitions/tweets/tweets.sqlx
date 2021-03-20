@@ -10,13 +10,12 @@ config {
 
 WITH mp_data AS (
   select
-    * except(screen_name)
+    *
+  except(screen_name)
   from
     ${resolve('mp_data_flattened_term_view')}
   where
-    not (
-      array_length(all_screen_names) = 0
-    )
+    not (array_length(all_screen_names) = 0)
 ),
 mp_data_flattened as (
   select
@@ -36,8 +35,8 @@ raw_data AS (
     ${
       when(incremental(),
         `where date >= (select max(date) from ${self()}) and
-                                                                            CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
-                                                                            ${self()})`)
+                                                                                                    CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
+                                                                                                    ${self()})`)
     }
 ),
 enhanced1 AS (
@@ -89,8 +88,41 @@ enhanced1 AS (
   WHERE
     A.insert_row = 1
 ),
+-- get the actual names and details of members that have been mentioned in tweets
+-- online active members at the time of tweet ar included
+active_member_mentions as (
+  select
+    id_str,
+    date,
+    user_mention,
+    B.name,
+    B.party,
+    B.parliament_group
+  from
+    enhanced1 A,
+    unnest(user_mentions) as user_mention
+    left join mp_data_flattened B on (
+      user_mention = B.screen_name
+      AND A.date >= B.term_start
+      AND A.date <= B.term_end
+    )
+  where
+    array_length(user_mentions) > 0
+    and B.screen_name is not null
+),
+-- nest the mentions so the can be joined back to the tweets
+active_member_mentions_nested as (
+  select
+    id_str,
+    array_agg(name) as mp_mention_name,
+    array_agg(party) as mp_mention_party,
+    array_agg(parliament_group) as mp_mention_parliament_group
+  from
+    active_member_mentions
+  group by
+    id_str
+),
 -- join the different tweet text fields into one proper one
--- make encoded version of the mentions array
 joined AS (
   SELECT
     *
@@ -109,13 +141,6 @@ joined AS (
       truncated,
       user_mentions
     ) AS full_text,
-    -- it's a bit misleading to use the same full_text name here as what comes from the API. Here the dimension is fixed and all the different versions from old data are combined
-    ARRAY(
-      SELECT
-        `tanelis.functions.encodeMention`(parliament_group, mention)
-      FROM
-        UNNEST(user_mentions) AS mention
-    ) AS mentions_encoded,
     `tanelis.functions.extractHashtags`(truncated, api_hashtags, full_text) AS hashtags,
     `tanelis.functions.extractWords`(full_text) AS words
   FROM
@@ -124,14 +149,17 @@ joined AS (
 ),
 joined2 AS (
   SELECT
-    *,
+    A.*,
     IF (
       REGEXP_CONTAINS(full_text, r"RT\s@"),
       TRUE,
       FALSE
     ) AS is_retweet,
+    B.*
+  except(id_str)
   FROM
-    joined
+    joined A
+    left join active_member_mentions_nested B on A.id_str = B.id_str
 )
 SELECT
   *
@@ -142,3 +170,7 @@ WHERE
   and name is not null
   -- only include original tweets in this table
   -- tweets are included only from mps who were members at the time of the tweet
+  -- select
+  --   *
+  -- from
+  --   active_member_mentions_nested
