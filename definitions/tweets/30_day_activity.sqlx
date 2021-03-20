@@ -15,7 +15,13 @@ js {
 with previous30 as (
   select
     ${groupFields},
-    sum(tweets) as tweets
+    sum(tweets) as tweets,
+    -- user_wollowers for the last date of the period
+    array_agg(
+      user_followers
+      order by
+        date desc
+    ) [safe_offset(0)] as user_followers
   from
     ${resolve('tweets_per_day')}
   where
@@ -26,7 +32,13 @@ with previous30 as (
 preceding30 as (
   select
     ${groupFields},
-    sum(tweets) as tweets
+    sum(tweets) as tweets,
+    -- user_wollowers for the last date of the period
+    array_agg(
+      user_followers
+      order by
+        date desc
+    ) [safe_offset(0)] as user_followers
   from
     ${resolve('tweets_per_day')}
   where
@@ -38,6 +50,15 @@ preceding30 as (
 joined_data as (
   select
     A.*,
+    B.user_followers as user_followers_previous,
+    rank() over(
+      order by
+        A.user_followers desc
+    ) as user_followers_rank,
+    rank() over(
+      order by
+        B.user_followers desc
+    ) as user_followers_rank_previous,
     B.tweets as tweets_previous,
     rank() over(
       order by
@@ -58,6 +79,28 @@ joined_data as (
 )
 select
   *,
+  (
+    case
+      when (
+        user_followers_rank_previous - user_followers_rank
+      ) = 0 then '-'
+      when (
+        user_followers_rank_previous - user_followers_rank
+      ) > 0 then '+' || cast(
+        (
+          user_followers_rank_previous - user_followers_rank
+        ) as STRING
+      )
+      when (
+        user_followers_rank_previous - user_followers_rank
+      ) < 0 then cast(
+        (
+          user_followers_rank_previous - user_followers_rank
+        ) as STRING
+      )
+    end
+  ) as user_followers_rank_change,
+  user_followers - user_followers_previous as user_followers_change,
   (
     case
       when (activity_rank_previous - activity_rank) = 0 then '-'
