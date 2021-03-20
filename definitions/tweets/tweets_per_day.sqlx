@@ -13,7 +13,11 @@ with tweets_daily as (
     date,
     name,
     COUNT(DISTINCT id_str) as tweets,
-    max(user_followers) as user_followers
+    max(user_followers) as user_followers,
+    array_concat_agg(user_mentions) as user_mentions,
+    array_concat_agg(mp_mention_name) as mp_mention_name,
+    array_concat_agg(mp_mention_party) as mp_mention_party,
+    array_concat_agg(mp_mention_parliament_group) as mp_mention_parliament_group
   from
     ${ref("tweets")} ${when(incremental(), `where date > (select max(date) from ${self()}) and date < current_date()`)}
   group by
@@ -46,7 +50,11 @@ join_data as (
   select
     A.*,
     coalesce(B.tweets, 0) as tweets,
-    B.user_followers
+    B.user_followers,
+    B.user_mentions,
+    B.mp_mention_name,
+    B.mp_mention_party,
+    B.mp_mention_parliament_group
   from
     members_unnest A
     left join tweets_daily B on A.date = B.date
