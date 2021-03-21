@@ -114,9 +114,10 @@ active_member_mentions as (
 active_member_mentions_nested as (
   select
     id_str,
-    array_agg(name) as mp_mention_name,
-    array_agg(party) as mp_mention_party,
-    array_agg(parliament_group) as mp_mention_parliament_group
+    array_agg((select as struct name, party, parliament_group)) as mp_mentions
+    -- array_agg(name) as mp_mention_name,
+    -- array_agg(party) as mp_mention_party,
+    -- array_agg(parliament_group) as mp_mention_parliament_group
   from
     active_member_mentions
   group by
