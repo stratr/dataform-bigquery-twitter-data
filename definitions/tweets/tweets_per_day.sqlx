@@ -15,7 +15,8 @@ with tweets_daily as (
     COUNT(DISTINCT id_str) as tweets,
     max(user_followers) as user_followers,
     array_concat_agg(user_mentions) as user_mentions,
-    array_concat_agg(mp_mentions) as mp_mentions
+    array_concat_agg(mp_mentions) as mp_mentions,
+    array_concat_agg(hashtags) as hashtags
   from
     ${ref("tweets")} ${when(incremental(), `where date > (select max(date) from ${self()}) and date < current_date()`)}
   group by
@@ -87,7 +88,8 @@ join_data as (
     B.user_followers,
     B.user_mentions,
     B.mp_mentions,
-    C.mp_mentions_by
+    C.mp_mentions_by,
+    B.hashtags
   from
     members_unnest A
     left join tweets_daily B on A.date = B.date
