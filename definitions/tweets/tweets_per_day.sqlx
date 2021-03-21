@@ -41,8 +41,44 @@ members_unnest as (
     members,
     unnest(dates) as date
   where
+    -- only include the dates where the person was an active mp
     date >= term_start
     and date <= term_end
+),
+-- the reverse of the mp_mentions, which other mps have mentioned the selected mp
+mentioned_by as (
+  select
+    A.date,
+    -- who did the mention
+    A.name as mentioner,
+    B.party as mentioner_party,
+    B.parliament_group as mentioner_parliament_group,
+    -- who was mentioned
+    mentions.name as mentioned_name
+  from
+    tweets_daily A,
+    unnest(mp_mentions) as mentions
+    left join members_unnest B on A.name = B.name
+    and A.date = B.date
+),
+-- similar data structure as the mp_mentions array
+mentioned_by_nested as (
+  select
+    date,
+    mentioned_name,
+    array_agg(
+      (
+        select
+          as struct mentioner as name,
+          mentioner_party as party,
+          mentioner_parliament_group as parliament_group
+      )
+    ) as mp_mentions_by
+  from
+    mentioned_by
+  group by
+    date,
+    mentioned_name
 ),
 join_data as (
   select
@@ -50,14 +86,18 @@ join_data as (
     coalesce(B.tweets, 0) as tweets,
     B.user_followers,
     B.user_mentions,
-    B.mp_mentions
+    B.mp_mentions,
+    C.mp_mentions_by
   from
     members_unnest A
     left join tweets_daily B on A.date = B.date
     and A.name = B.name
+    left join mentioned_by_nested C on A.date = C.date
+    and A.name = C.mentioned_name
 )
 select
-  * except(user_followers),
+  *
+except(user_followers),
   last_value(user_followers ignore nulls) over (
     partition by name
     order by
