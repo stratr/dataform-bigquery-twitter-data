@@ -21,7 +21,12 @@ with previous30 as (
       user_followers
       order by
         date desc
-    ) [safe_offset(0)] as user_followers
+    ) [safe_offset(0)] as user_followers,
+    array_agg(
+      active_finnish_parliament
+      order by
+        date desc
+    ) [safe_offset(0)] as active_finnish_parliament
   from
     ${resolve('tweets_per_day')}
   where
