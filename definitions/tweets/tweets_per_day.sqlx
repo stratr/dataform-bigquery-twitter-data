@@ -45,6 +45,7 @@ members_unnest as (
     -- only include the dates where the person was an active mp
     date >= term_start
     and date <= term_end
+    ${when(incremental(), `and date > (select max(date) from ${self()}) and date < current_date()`)}
 ),
 -- the reverse of the mp_mentions, which other mps have mentioned the selected mp
 mentioned_by as (
