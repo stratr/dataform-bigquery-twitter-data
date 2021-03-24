@@ -8,6 +8,7 @@ config {
   },
 }
 
+
 with tweets_daily as (
   select
     date,
@@ -44,8 +45,7 @@ members_unnest as (
   where
     -- only include the dates where the person was an active mp
     date >= term_start
-    and date <= term_end
-    ${when(incremental(), `and date > (select max(date) from ${self()}) and date < current_date()`)}
+    and date <= term_end ${when(incremental(), `and date > (select max(date) from ${self()}) and date < current_date()`)}
 ),
 -- the reverse of the mp_mentions, which other mps have mentioned the selected mp
 mentioned_by as (
@@ -97,15 +97,35 @@ join_data as (
     and A.name = B.name
     left join mentioned_by_nested C on A.date = C.date
     and A.name = C.mentioned_name
+),
+-- this gets the last followers amount from self to be used with incremental refreshes. Not really necessary and not perfect.
+self_data as (
+  select
+    name as name_2,
+    array_agg(
+      user_followers ignore nulls
+      order by
+        date asc
+    ) [safe_offset(0)] as last_user_followers
+  from
+    ${self()}
+  group by
+    1
 )
 select
   *
 except(user_followers),
-  last_value(user_followers ignore nulls) over (
-    partition by name
-    order by
-      date asc rows between unbounded preceding
-      and current row
-  ) user_followers
+  ${
+    when(incremental(),
+      `coalesce(user_followers, B.last_user_followers) as user_followers`,
+      `last_value(user_followers ignore nulls) over (
+            partition by name
+            order by
+              date asc rows between unbounded preceding
+              and current row
+          ) user_followers`
+    )
+  }
 from
-  join_data
+  join_data A
+  left join self_data B on A.name = B.name_2
