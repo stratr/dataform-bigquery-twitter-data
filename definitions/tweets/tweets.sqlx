@@ -1,10 +1,12 @@
 config {
   type: "incremental",
+  uniqueKey: ["id_str"],
   tags: ["tweets"],
   description: "Data source table with all the collected tweets. Only tweets from MPs who were active during posting the tweet. No re-tweets. Data includes all the other possible data about the MPs as well.",
   bigquery: {
-    partitionBy: "date",
-    clusterBy: ["parliament_group", "party"]
+    partitionBy: "date_trunc(date, MONTH)",
+    clusterBy: ["parliament_group", "party"],
+    updatePartitionFilter: "date >= current_date()-1"
   },
 }
 
@@ -34,9 +36,7 @@ raw_data AS (
     `tanelis.tweets_eu.raw_tweets`
     ${
       when(incremental(),
-        `where date >= (select max(date) from ${self()}) and
-                                                                                                    CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from
-                                                                                                    ${self()})`)
+        `where date >= (select max(date) from ${self()}) and CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from ${self()})`)
     }
 ),
 enhanced1 AS (
