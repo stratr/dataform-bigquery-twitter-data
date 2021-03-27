@@ -1,13 +1,22 @@
 config {
   type: "incremental",
+  uniqueKey: ["unique_id"],
   tags: ['daily'],
   description: "Tweets per day from each member of parliament.",
   bigquery: {
-    partitionBy: "date",
-    clusterBy: ["name"]
+    partitionBy: "date_trunc(date, MONTH)",
+    clusterBy: ["party", "name"],
+    updatePartitionFilter: "date >= current_date()-2"
   },
 }
 
+js {
+  const datesFromStart = `GENERATE_DATE_ARRAY(
+      DATE('2019-10-08'),
+      CURRENT_DATE() -1,
+      INTERVAL 1 DAY
+    )`
+}
 
 with tweets_daily as (
   select
@@ -19,7 +28,7 @@ with tweets_daily as (
     array_concat_agg(mp_mentions) as mp_mentions,
     array_concat_agg(hashtags) as hashtags
   from
-    ${ref("tweets")} ${when(incremental(), `where date > (select max(date) from ${self()}) and date < current_date()`)}
+    ${ref("tweets")} ${when(incremental(), `where date >= (select max(date) from ${self()}) and date >= current_date()-2`)}
   group by
     date,
     name
@@ -27,11 +36,7 @@ with tweets_daily as (
 members as (
   select
     *,
-    GENERATE_DATE_ARRAY(
-      DATE('2019-10-08'),
-      CURRENT_DATE() -1,
-      INTERVAL 1 DAY
-    ) as dates
+    ${datesFromStart} as dates
   from
     ${resolve('mp_data_flattened_term_view')}
 ),
@@ -98,34 +103,39 @@ join_data as (
     left join mentioned_by_nested C on A.date = C.date
     and A.name = C.mentioned_name
 ),
--- this gets the last followers amount from self to be used with incremental refreshes. Not really necessary and not perfect.
-self_data as (
+-- this gets the last followers amount for each mp
+daily_followers as (
   select
-    name as name_2,
-    array_agg(
-      user_followers ignore nulls
-      order by
-        date asc
-    ) [safe_offset(0)] as last_user_followers
+    name,
+    date,
+    max(user_followers) as user_followers
   from
-    ${self()}
+    ${ref('tweets')} A
   group by
-    1
+    1,
+    2
+),
+last_followers as (
+  select
+    B.name,
+    B.date,
+    last_value(user_followers ignore nulls) over (
+      partition by B.name
+      order by
+        B.date asc rows between unbounded preceding
+        and current row
+    ) as user_followers
+  from
+    daily_followers A
+    right join members_unnest B on A.date = B.date
+    and A.name = B.name
 )
 select
-  *
+  farm_fingerprint(concat(A.name, A.date, A.party)) as unique_id,
+  A.*
 except(user_followers),
-  ${
-    when(incremental(),
-      `coalesce(user_followers, B.last_user_followers) as user_followers`,
-      `last_value(user_followers ignore nulls) over (
-            partition by name
-            order by
-              date asc rows between unbounded preceding
-              and current row
-          ) user_followers`
-    )
-  }
+  B.user_followers
 from
   join_data A
-  left join self_data B on A.name = B.name_2
+  left join last_followers B on A.name = B.name
+  and A.date = B.date
