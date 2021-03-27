@@ -13,16 +13,6 @@
           "options": {
             "includeDependencies": true
           }
-        },
-        {
-          "name": "daily_update",
-          "cron": "0 5 * * *",
-          "tags": [
-            "daily"
-          ],
-          "options": {
-            "includeDependencies": true
-          }
         }
       ],
       "gitRef": "master"

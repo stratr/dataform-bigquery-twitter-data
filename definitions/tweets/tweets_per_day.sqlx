@@ -1,7 +1,7 @@
 config {
   type: "incremental",
   uniqueKey: ["unique_id"],
-  tags: ['daily'],
+  tags: ["tweets"],
   description: "Tweets per day from each member of parliament.",
   bigquery: {
     partitionBy: "date_trunc(date, MONTH)",
@@ -16,6 +16,8 @@ js {
       CURRENT_DATE() -1,
       INTERVAL 1 DAY
     )`
+  
+  const incrementalFilter = `date >= (select max(date) from ${self()}) and date >= current_date()-2`
 }
 
 with tweets_daily as (
@@ -28,7 +30,7 @@ with tweets_daily as (
     array_concat_agg(mp_mentions) as mp_mentions,
     array_concat_agg(hashtags) as hashtags
   from
-    ${ref("tweets")} ${when(incremental(), `where date >= (select max(date) from ${self()}) and date >= current_date()-2`)}
+    ${ref("tweets")} ${when(incremental(), `where ${incrementalFilter}`)}
   group by
     date,
     name
@@ -50,7 +52,7 @@ members_unnest as (
   where
     -- only include the dates where the person was an active mp
     date >= term_start
-    and date <= term_end ${when(incremental(), `and date > (select max(date) from ${self()}) and date < current_date()`)}
+    and date <= term_end ${when(incremental(), `and ${incrementalFilter}`)}
 ),
 -- the reverse of the mp_mentions, which other mps have mentioned the selected mp
 mentioned_by as (
