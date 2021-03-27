@@ -16,7 +16,7 @@ js {
       CURRENT_DATE(),
       INTERVAL 1 DAY
     )`
-  
+
   const incrementalFilter = `date >= (select max(date) from ${self()}) and date >= current_date()-2`
 }
 
@@ -52,7 +52,14 @@ members_unnest as (
   where
     -- only include the dates where the person was an active mp
     date >= term_start
-    and date <= term_end ${when(incremental(), `and ${incrementalFilter}`)}
+    and date <= term_end
+),
+-- same as previous but with the incremental filter
+members_unnest_incremental as (
+  select
+    *
+  from
+    members_unnest ${when(incremental(), `where ${incrementalFilter}`)}
 ),
 -- the reverse of the mp_mentions, which other mps have mentioned the selected mp
 mentioned_by as (
@@ -67,7 +74,7 @@ mentioned_by as (
   from
     tweets_daily A,
     unnest(mp_mentions) as mentions
-    left join members_unnest B on A.name = B.name
+    left join members_unnest_incremental B on A.name = B.name
     and A.date = B.date
 ),
 -- similar data structure as the mp_mentions array
@@ -99,7 +106,7 @@ join_data as (
     C.mp_mentions_by,
     B.hashtags
   from
-    members_unnest A
+    members_unnest_incremental A
     left join tweets_daily B on A.date = B.date
     and A.name = B.name
     left join mentioned_by_nested C on A.date = C.date
