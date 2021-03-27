@@ -13,7 +13,7 @@ config {
 js {
   const datesFromStart = `GENERATE_DATE_ARRAY(
       DATE('2019-10-08'),
-      CURRENT_DATE() -1,
+      CURRENT_DATE(),
       INTERVAL 1 DAY
     )`
   
