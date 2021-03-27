@@ -1,0 +1,40 @@
+config {
+  type: "view"
+}
+
+with monthly_data as (
+  select
+    date_trunc(date, MONTH) as month,
+    name,
+    party,
+    parliament_group,
+    array_agg(
+      user_followers
+      order by
+        date desc
+    ) [safe_offset(0)] as user_followers_last
+    -- always the last value of the month
+  from
+    ${resolve("tweets_per_day")}
+  group by
+    1,
+    2,
+    3,
+    4
+),
+followers_previous as (
+  select
+    *,
+    lag(user_followers_last) over(
+      partition by name
+      order by
+        month asc
+    ) as user_followers_previous
+  from
+    monthly_data
+)
+select
+  *,
+  coalesce(user_followers_last - user_followers_previous, 0) as user_followers_change
+from
+  followers_previous
