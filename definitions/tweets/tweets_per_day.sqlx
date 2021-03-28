@@ -143,8 +143,8 @@ select
   farm_fingerprint(concat(A.name, A.date, A.party)) as unique_id,
   A.*
 except(user_followers),
-  B.user_followers,
-  B.user_followers - lag(B.user_followers) over(partition by A.name order by A.date asc) as user_followers_change
+  if(A.date < '2020-01-01', null, B.user_followers) as user_followers,
+  if(A.date < '2020-01-01', null, B.user_followers - lag(B.user_followers) over(partition by A.name order by A.date asc)) as user_followers_change
 from
   join_data A
   left join last_followers B on A.name = B.name

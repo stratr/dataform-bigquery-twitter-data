@@ -1,5 +1,11 @@
 config {
-  type: "view"
+  type: "table",
+  tags: ["daily"],
+  description: "Monthly user followers trend data.",
+  bigquery: {
+    partitionBy: "month",
+    clusterBy: ["party", "name"]
+  }
 }
 
 with monthly_data as (
@@ -30,8 +36,8 @@ followers_previous as (
       order by
         month asc
     ) as user_followers_previous,
-    if(parliament_group = 'Hallitus', user_followers_last, 0) as user_followers_last_hallitus,
-    if(parliament_group = 'Oppositio', user_followers_last, 0) as user_followers_last_oppositio
+    if(parliament_group = 'Hallitus', user_followers_last, null) as user_followers_last_hallitus,
+    if(parliament_group = 'Oppositio', user_followers_last, null) as user_followers_last_oppositio
   from
     monthly_data
 )

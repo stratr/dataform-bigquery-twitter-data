@@ -13,6 +13,13 @@
           "options": {
             "includeDependencies": true
           }
+        },
+        {
+          "name": "Daily refresh",
+          "cron": "0 4 * * *",
+          "tags": [
+            "daily"
+          ]
         }
       ],
       "gitRef": "master"
