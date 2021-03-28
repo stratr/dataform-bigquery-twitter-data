@@ -29,7 +29,9 @@ followers_previous as (
       partition by name
       order by
         month asc
-    ) as user_followers_previous
+    ) as user_followers_previous,
+    if(parliament_group = 'Hallitus', user_followers_last, 0) as user_followers_last_hallitus,
+    if(parliament_group = 'Oppositio', user_followers_last, 0) as user_followers_last_oppositio
   from
     monthly_data
 )
