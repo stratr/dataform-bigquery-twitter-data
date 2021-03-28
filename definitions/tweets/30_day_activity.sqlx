@@ -1,5 +1,10 @@
 config {
-  type: "view"
+  type: "table",
+  tags: ["tweets"],
+  description: "Data on the user activity for the last 30 days compared to the previous 30 days.",
+  bigquery: {
+    clusterBy: ["party", "name"]
+  }
 }
 
 js {
@@ -28,9 +33,9 @@ with previous30 as (
         date desc
     ) [safe_offset(0)] as active_finnish_parliament
   from
-    ${resolve('tweets_per_day')}
+    ${ref('tweets_per_day')}
   where
-    date >= current_date() -31
+    date >= current_date() -30
   group by
     ${groupFields}
 ),
@@ -45,10 +50,10 @@ preceding30 as (
         date desc
     ) [safe_offset(0)] as user_followers
   from
-    ${resolve('tweets_per_day')}
+    ${ref('tweets_per_day')}
   where
-    date >= current_date() -61
-    and date < current_date() -31
+    date >= current_date() -60
+    and date < current_date() -30
   group by
     ${groupFields}
 ),
@@ -83,6 +88,7 @@ joined_data as (
     left join preceding30 B using(name)
 )
 select
+  current_datetime() as datetime_updated,
   *,
   (
     case
@@ -120,5 +126,3 @@ select
   tweets - tweets_previous as activity_change
 from
   joined_data
-order by
-  activity_rank

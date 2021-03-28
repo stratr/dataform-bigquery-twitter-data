@@ -11,7 +11,8 @@
             "tweets"
           ],
           "options": {
-            "includeDependencies": true
+            "includeDependencies": true,
+            "includeDependents": true
           }
         },
         {
