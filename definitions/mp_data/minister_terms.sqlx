@@ -1,0 +1,32 @@
+config {
+  type: "view"
+}
+
+with flat_data as (
+  select
+    concat(
+      regexp_replace(name, r'^[^\s]+\s', ''),
+      ' ',
+      split(name, ' ') [SAFE_OFFSET(0)]
+    ) as name,
+    *
+  except(name)
+  from
+    `tanelis.government_ministers.ministers`
+)
+select
+  name,
+  array_agg(
+    (
+      select
+        as struct term,
+        term_start,
+        term_end,
+        role,
+        government_name
+    )
+  ) as finnish_parliament_minister
+from
+  flat_data
+group by
+  name

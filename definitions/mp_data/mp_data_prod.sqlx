@@ -44,6 +44,18 @@ twitter_image as (
     ${resolve('tweets')}
   group by
     user_screen_name
+),
+ministers as (
+  select
+    concat(
+      regexp_replace(name, r'^[^\s]+\s', ''),
+      ' ',
+      split(name, ' ') [SAFE_OFFSET(0)]
+    ) as name,
+    *
+  except(name)
+  from
+    `tanelis.government_ministers.ministers`
 )
 SELECT
   A.*
@@ -64,3 +76,7 @@ EXCEPT(twitter_screen_name, twitter_screen_names_old),
 FROM
   sheets_data A
   left join twitter_image B on A.twitter_screen_name = B.user_screen_name
+-- select
+--   *
+-- from
+--   ministers

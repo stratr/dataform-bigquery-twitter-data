@@ -21,7 +21,7 @@ with previous30 as (
   select
     ${groupFields},
     sum(tweets) as tweets,
-    -- user_wollowers for the last date of the period
+    -- user_followers for the last date of the period
     array_agg(
       user_followers
       order by
