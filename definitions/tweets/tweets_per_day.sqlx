@@ -61,6 +61,31 @@ members_unnest_incremental as (
   from
     members_unnest ${when(incremental(), `where ${incrementalFilter}`)}
 ),
+ministers as (
+  select
+    *,
+    ${datesFromStart} as dates
+  from
+    ${resolve('minister_terms_flattened')}
+),
+ministers_unnest as (
+  select
+    *
+  except(dates)
+  from
+    ministers,
+    unnest(dates) as date
+  where
+    -- only include the dates where the person was an active mp
+    date >= term_start
+    and date <= term_end
+),
+ministers_unnest_incremental as (
+  select
+    *
+  from
+    ministers_unnest ${when(incremental(), `where ${incrementalFilter}`)}
+),
 -- the reverse of the mp_mentions, which other mps have mentioned the selected mp
 mentioned_by as (
   select
@@ -104,13 +129,15 @@ join_data as (
     B.user_mentions,
     B.mp_mentions,
     C.mp_mentions_by,
-    B.hashtags
+    B.hashtags,
+    (select as struct D.role, D.government_name) as government
   from
     members_unnest_incremental A
     left join tweets_daily B on A.date = B.date
     and A.name = B.name
     left join mentioned_by_nested C on A.date = C.date
     and A.name = C.mentioned_name
+    left join ministers_unnest_incremental D on A.date = D.date and A.name = D.name
 ),
 -- this gets the last followers amount for each mp
 daily_followers as (
@@ -149,3 +176,5 @@ from
   join_data A
   left join last_followers B on A.name = B.name
   and A.date = B.date
+
+  -- select * from ministers_unnest
