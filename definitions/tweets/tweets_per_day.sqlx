@@ -130,7 +130,8 @@ join_data as (
     B.mp_mentions,
     C.mp_mentions_by,
     B.hashtags,
-    (select as struct D.role, D.government_name) as government
+    D.role as government_role,
+    D.government_name
   from
     members_unnest_incremental A
     left join tweets_daily B on A.date = B.date

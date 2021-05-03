@@ -20,6 +20,7 @@ js {
 with previous30 as (
   select
     ${groupFields},
+    array_agg(government_role order by date desc)[safe_offset(0)] as government_role,
     sum(tweets) as tweets,
     -- user_followers for the last date of the period
     array_agg(
@@ -42,6 +43,7 @@ with previous30 as (
 preceding30 as (
   select
     ${groupFields},
+    array_agg(government_role order by date desc)[safe_offset(0)] as government_role,
     sum(tweets) as tweets,
     -- user_wollowers for the last date of the period
     array_agg(

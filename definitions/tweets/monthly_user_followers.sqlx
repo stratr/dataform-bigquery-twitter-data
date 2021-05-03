@@ -14,6 +14,7 @@ with monthly_data as (
     name,
     party,
     parliament_group,
+    array_agg(government_role order by date desc)[safe_offset(0)] as government_role,
     array_agg(
       user_followers
       order by
