@@ -27,6 +27,12 @@ mp_data_flattened as (
     mp_data,
     unnest(all_screen_names) as screen_name
 ),
+minister_data_flattened as (
+  select
+    *
+  from
+    ${resolve('minister_terms_flattened')}
+),
 raw_data AS (
   SELECT
     *,
@@ -76,7 +82,8 @@ enhanced1 AS (
     B.term AS parliament_term,
     B.party,
     B.parliament_group,
-    B.datastudio_filter
+    B.datastudio_filter,
+    (select as struct C.role, C.government_name) as government
   FROM
     raw_data A
     --resolve instead of ref: it 's not desired that updating the tweet table would by default also update the mp data tables
@@ -84,6 +91,11 @@ enhanced1 AS (
       A.user_screen_name = B.screen_name
       AND A.date >= B.term_start
       AND A.date <= B.term_end
+    )
+    left join minister_data_flattened C on (
+      A.user_screen_name = C.screen_name
+      AND A.date >= C.term_start
+      AND A.date <= C.term_end
     )
   WHERE
     A.insert_row = 1

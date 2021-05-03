@@ -1,0 +1,31 @@
+config {
+  type: "view",
+  description: 'Minister term data in a format that can be joined with the tweets using twitter screen name.'
+}
+
+with terms as (
+  select
+    name,
+    m.term_start,
+    m.term_end,
+    m.term,
+    m.role,
+    m.government_name,
+    array_concat(
+      if(
+        twitter.screen_name is not null,
+        [twitter.screen_name],
+        []
+      ),
+      twitter.screen_names_old
+    ) as all_screen_names
+  from
+    ${resolve('mp_data_prod')},
+    unnest(finnish_parliament_minister) as m
+)
+select
+  *
+except(all_screen_names)
+from
+  terms,
+  unnest(all_screen_names) as screen_name
