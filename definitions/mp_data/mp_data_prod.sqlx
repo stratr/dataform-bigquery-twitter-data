@@ -1,7 +1,15 @@
 config {
   type: "table",
   description: "List of members of parliament in nested format.",
-  tags: ["mp_data"]
+  tags: ["mp_data"],
+  columns: {
+    active_finnish_parliament: 'Wether or not the person is currently an active member of the Finnish parliament.',
+    finnish_parliament: 'Array of terms when the person has been active in the parliament. A change of party shows up as a new term in the array.',
+    finnish_parliament_minister: 'Array of minister roles in the government.',
+    eduskunta_page_url: 'URL to find out more details about the MP',
+    twitter: 'Details about the associated Twitter user(s)',
+    datastudio_filter: 'A direct link with applied filters to the Data Studio dashboard.'
+  }
 }
 
 WITH sheets_data AS (
@@ -47,19 +55,14 @@ twitter_image as (
 ),
 ministers as (
   select
-    concat(
-      regexp_replace(name, r'^[^\s]+\s', ''),
-      ' ',
-      split(name, ' ') [SAFE_OFFSET(0)]
-    ) as name,
     *
-  except(name)
   from
-    `tanelis.government_ministers.ministers`
+    ${ref('minister_terms')}
 )
 SELECT
   A.*
 EXCEPT(twitter_screen_name, twitter_screen_names_old),
+C.* except(name),
   (
     SELECT
       AS STRUCT twitter_screen_name AS screen_name,
@@ -69,13 +72,14 @@ EXCEPT(twitter_screen_name, twitter_screen_names_old),
   'https://datastudio.google.com/u/0/reporting/0c5ed213-ffc6-432b-85bc-4fd032056bbe/page/Mky6B?' || `tanelis.functions.url_encode`(
     concat(
       'params={"df337":"include%EE%80%800%EE%80%80IN%EE%80%80',
-      `tanelis.functions.url_encode`(name),
+      `tanelis.functions.url_encode`(A.name),
       '"}'
     )
   ) as datastudio_filter
 FROM
   sheets_data A
   left join twitter_image B on A.twitter_screen_name = B.user_screen_name
+  left join ministers C on A.name = C.name
 -- select
 --   *
 -- from
