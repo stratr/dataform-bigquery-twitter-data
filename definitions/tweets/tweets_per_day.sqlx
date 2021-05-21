@@ -6,7 +6,7 @@ config {
   bigquery: {
     partitionBy: "date_trunc(date, MONTH)",
     clusterBy: ["party", "name"],
-    updatePartitionFilter: "date >= current_date()-2"
+    updatePartitionFilter: "date >= current_date()-5"
   },
 }
 
@@ -17,7 +17,7 @@ js {
       INTERVAL 1 DAY
     )`;
 
-  const incrementalFilter = `date >= (select max(date) from ${self()}) and date >= current_date()-2`;
+  const incrementalFilter = `date >= date_checkpoint`;
 }
 
 with tweets_daily as (
@@ -138,7 +138,8 @@ join_data as (
     and A.name = B.name
     left join mentioned_by_nested C on A.date = C.date
     and A.name = C.mentioned_name
-    left join ministers_unnest_incremental D on A.date = D.date and A.name = D.name
+    left join ministers_unnest_incremental D on A.date = D.date
+    and A.name = D.name
 ),
 -- this gets the last followers amount for each mp
 daily_followers as (
@@ -171,9 +172,30 @@ select
   farm_fingerprint(concat(A.name, A.date, A.party)) as unique_id,
   A.*
 except(user_followers),
-  if(A.date < '2020-01-01', null, B.user_followers) as user_followers,
-  if(A.date < '2020-01-01', null, B.user_followers - lag(B.user_followers) over(partition by A.name order by A.date asc)) as user_followers_change
+  if(
+    A.date < '2020-01-01',
+    null,
+    B.user_followers
+  ) as user_followers,
+  if(
+    A.date < '2020-01-01',
+    null,
+    B.user_followers - lag(B.user_followers) over(
+      partition by A.name
+      order by
+        A.date asc
+    )
+  ) as user_followers_change
 from
   join_data A
   left join last_followers B on A.name = B.name
   and A.date = B.date
+
+pre_operations {
+  declare date_checkpoint default (
+    select
+      max(date)
+    from
+      ${self()}
+  );
+}
