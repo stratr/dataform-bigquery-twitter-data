@@ -42,7 +42,7 @@ raw_data AS (
     `tanelis.tweets_eu.raw_tweets`
     ${
       when(incremental(),
-        `where date >= (select max(date) from ${self()}) and CAST(id_str AS INT64) > (select MAX(CAST(id_str AS INT64)) from ${self()})`)
+        `where date >= date_checkpoint and CAST(id_str AS INT64) > id_str_checkpoint`)
     }
 ),
 enhanced1 AS (
@@ -181,9 +181,12 @@ FROM
 WHERE
   is_retweet = FALSE
   and name is not null
-  -- only include original tweets in this table
-  -- tweets are included only from mps who were members at the time of the tweet
-  -- select
-  --   *
-  -- from
-  --   active_member_mentions_nested
+
+pre_operations {
+  declare date_checkpoint default (
+    select max(date) from ${self()}
+  );
+  declare id_str_checkpoint default (
+    select MAX(CAST(id_str AS INT64)) from ${self()}
+  );
+}

@@ -15,9 +15,9 @@ js {
       DATE('2019-10-08'),
       CURRENT_DATE(),
       INTERVAL 1 DAY
-    )`
+    )`;
 
-  const incrementalFilter = `date >= (select max(date) from ${self()}) and date >= current_date()-2`
+  const incrementalFilter = `date >= (select max(date) from ${self()}) and date >= current_date()-2`;
 }
 
 with tweets_daily as (
@@ -177,5 +177,3 @@ from
   join_data A
   left join last_followers B on A.name = B.name
   and A.date = B.date
-
-  -- select * from ministers_unnest
