@@ -36,7 +36,7 @@ WITH training_data AS (
       )
     ) as word_array
   FROM
-    `tanelis.dataform.tweets`
+    ${ref('tweets')}
   WHERE
     parliament_group IS NOT NULL
     AND lang = 'fi'

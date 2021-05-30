@@ -1,0 +1,74 @@
+config {
+  type: "incremental"
+}
+
+WITH tweets AS (
+  SELECT
+    date,
+    id_str,
+    name,
+    party,
+    parliament_group,
+    ML.NGRAMS(
+      array_concat(
+        array(
+          (
+            select
+              '@mention'
+            from
+              unnest(user_mentions) as m
+          )
+        ),
+        array(
+          (
+            select
+              concat('@mp', m.parliament_group)
+            from
+              unnest(mp_mentions) as m
+          )
+        ),
+        array(
+          (
+            select
+              w
+            from
+              unnest(words) as w
+            where
+              not regexp_contains(w, r'^@')
+          )
+        )
+      ),
+      [1,
+        2]
+    ) as ngrams
+  FROM
+    ${ref('tweets')}
+  WHERE
+    ${when(incremental(), `date > date_checkpoint`, `date = current_date() -1`)}
+    and parliament_group IS NOT NULL
+    AND lang = 'fi'
+    and array_length(words) > 0
+)
+SELECT
+  *
+FROM
+  ML.PREDICT(
+    MODEL `tanelis.models.predict_parliament_group`,
+    (
+      SELECT
+        *
+      FROM
+        tweets
+    )
+  )
+
+pre_operations {
+  ${
+    when(incremental(), `declare date_checkpoint default (
+          select
+            max(date)
+          from
+            ${self()}
+        );`)
+  }
+}
