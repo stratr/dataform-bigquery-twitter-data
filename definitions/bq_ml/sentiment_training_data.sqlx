@@ -1,0 +1,52 @@
+config {
+  type: "view"
+}
+
+WITH training_data AS (
+  SELECT
+    date,
+    id_str,
+    parliament_group as review_label,
+    array_concat(
+      array(
+        (
+          select
+            '@mention'
+          from
+            unnest(user_mentions) as m
+        )
+      ),
+      array(
+        (
+          select
+            concat('@mp', m.parliament_group)
+          from
+            unnest(mp_mentions) as m
+        )
+      ),
+      array(
+        (
+          select
+            w
+          from
+            unnest(words) as w
+          where
+            not regexp_contains(w, r'^@')
+        )
+      )
+    ) as word_array
+  FROM
+    `tanelis.dataform.tweets`
+  WHERE
+    parliament_group IS NOT NULL
+    AND lang = 'fi'
+    and array_length(words) > 0
+)
+SELECT
+  date,
+  id_str,
+  review_label,
+  ML.NGRAMS(word_array, [1,
+        2]) AS ngrams
+FROM
+  training_data
