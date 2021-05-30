@@ -1,0 +1,35 @@
+config {
+  type: "incremental",
+  description: "Predict from tweet text if the mp is from an opposition or from a government party. Table contains the results of each training run for the model.",
+  tags: ['train_ml']
+}
+
+js {
+  const modelLocation = 'tanelis.models';
+  const modelName = 'predict_parliament_group';
+}
+
+SELECT
+  current_datetime() as training_datetime,
+  "${modelLocation}" as location,
+  "${modelName}" as name,
+  *
+FROM
+  ML.EVALUATE(MODEL `${modelLocation}.${modelName}`)
+
+pre_operations {
+  CREATE
+  OR REPLACE MODEL `${modelLocation}.${modelName}` OPTIONS (
+    model_type = 'LOGISTIC_REG',
+    auto_class_weights = TRUE,
+    data_split_method = 'RANDOM',
+    MIN_REL_PROGRESS = 0.005,
+    LEARN_RATE_STRATEGY = 'LINE_SEARCH',
+    input_label_cols = ['review_label']
+  ) AS
+  SELECT
+    ngrams,
+    review_label
+  FROM
+    ${ref('sentiment_training_data')}
+}
