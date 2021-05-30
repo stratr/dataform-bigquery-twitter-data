@@ -55,7 +55,14 @@ WITH tweets AS (
     and array_length(words) > 0
 )
 SELECT
-  *
+  date,
+  id_str,
+  name,
+  party,
+  parliament_group,
+  (select prob.prob from unnest(predicted_review_label_probs) as prob where prob.label = 'Hallitus') as tweet_government_prob,
+  predicted_review_label,
+  predicted_review_label_probs
 FROM
   ML.PREDICT(
     MODEL `tanelis.models.predict_parliament_group`,
