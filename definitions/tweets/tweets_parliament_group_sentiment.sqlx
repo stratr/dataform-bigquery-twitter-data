@@ -49,8 +49,8 @@ WITH tweets AS (
   FROM
     ${ref('tweets')}
   WHERE
-    ${when(incremental(), `date > date_checkpoint`, `date = current_date() -1`)}
-    and parliament_group IS NOT NULL
+    ${when(incremental(), `date > date_checkpoint and`)}
+    parliament_group IS NOT NULL
     AND lang = 'fi'
     and array_length(words) > 0
 )
