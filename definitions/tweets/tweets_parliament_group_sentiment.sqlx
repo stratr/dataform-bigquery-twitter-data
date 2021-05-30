@@ -1,5 +1,10 @@
 config {
-  type: "incremental"
+  type: "incremental",
+  bigquery: {
+    partitionBy: "date_trunc(date, MONTH)",
+    clusterBy: ["party", "name"]
+  },
+  tags: ['daily']
 }
 
 WITH tweets AS (
