@@ -1,18 +1,22 @@
 config {
   type: "incremental",
-  description: "Predict from tweet text if the mp is from an opposition or from a government party. Table contains the results of each training run for the model.",
-  tags: ['train_ml']
+  description: "Predict from tweet text if the mp is from an opposition or from a government party. Table contains the results of each training run for the model."
 }
 
 js {
   const modelLocation = 'tanelis.models';
   const modelName = 'predict_parliament_group';
+
+  // number of dates to leave out of training data 
+  const excludeLastDays = 30;
+  const lastDateToInclude = `current_date()-30`;
 }
 
 SELECT
   current_datetime() as training_datetime,
   "${modelLocation}" as location,
   "${modelName}" as name,
+  ${lastDateToInclude} as max_date_training_data,
   *
 FROM
   ML.EVALUATE(MODEL `${modelLocation}.${modelName}`)
@@ -32,4 +36,6 @@ pre_operations {
     review_label
   FROM
     ${ref('sentiment_training_data')}
+  where
+    date <= ${lastDateToInclude}
 }

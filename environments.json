@@ -21,13 +21,6 @@
           "tags": [
             "daily"
           ]
-        },
-        {
-          "name": "train_ml_model",
-          "cron": "0 5 * * mon",
-          "tags": [
-            "train_ml"
-          ]
         }
       ],
       "gitRef": "master"

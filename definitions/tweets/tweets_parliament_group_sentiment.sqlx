@@ -7,7 +7,13 @@ config {
   tags: ['daily']
 }
 
-WITH tweets AS (
+WITH min_prediction_date as (
+  select
+    max(max_date_training_data) as min_date
+  from
+    ${ref("sentiment_train_model")}
+),
+tweets AS (
   SELECT
     date,
     id_str,
@@ -49,8 +55,13 @@ WITH tweets AS (
   FROM
     ${ref('tweets')}
   WHERE
-    ${when(incremental(), `date > date_checkpoint and`)}
-    parliament_group IS NOT NULL
+    ${when(incremental(), `date > date_checkpoint and`)} date > (
+      select
+        min_date
+      from
+        min_prediction_date
+    )
+    and parliament_group IS NOT NULL
     AND lang = 'fi'
     and array_length(words) > 0
 )
@@ -60,7 +71,14 @@ SELECT
   name,
   party,
   parliament_group,
-  (select prob.prob from unnest(predicted_review_label_probs) as prob where prob.label = 'Hallitus') as tweet_government_prob,
+  (
+    select
+      prob.prob
+    from
+      unnest(predicted_review_label_probs) as prob
+    where
+      prob.label = 'Hallitus'
+  ) as tweet_government_prob,
   predicted_review_label,
   predicted_review_label_probs
 FROM
@@ -77,10 +95,10 @@ FROM
 pre_operations {
   ${
     when(incremental(), `declare date_checkpoint default (
-          select
-            max(date)
-          from
-            ${self()}
-        );`)
+              select
+                max(date)
+              from
+                ${self()}
+            );`)
   }
 }
