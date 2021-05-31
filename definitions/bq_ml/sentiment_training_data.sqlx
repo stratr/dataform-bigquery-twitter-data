@@ -38,7 +38,8 @@ WITH training_data AS (
   FROM
     ${ref('tweets')}
   WHERE
-    parliament_group IS NOT NULL
+    date <= current_date()-30
+    and parliament_group IS NOT NULL
     AND lang = 'fi'
     and array_length(words) > 0
 )
