@@ -42,6 +42,8 @@ members as (
   from
     ${resolve('mp_data_flattened_term_view')}
 ),
+-- create a table where each member of parliament has one row per date
+-- only include dates where the mep has been in the parliament
 members_unnest as (
   select
     *
@@ -153,6 +155,7 @@ daily_followers as (
     1,
     2
 ),
+-- daily number of user followers, data from the latest tweet if there is no data for the current date
 last_followers as (
   select
     B.name,
@@ -191,7 +194,58 @@ join_followers as (
     join_data A
     left join last_followers B on A.name = B.name
     and A.date = B.date
+),
+-- data required for getting the 7 day twitter activity on incremental refreshes
+tweet_activity_window_tweets as (
+  select
+    date,
+    name,
+    COUNT(DISTINCT id_str) as tweets
+  from
+    ${ref("tweets")}
+  where
+    date >= date_checkpoint_minus_6
+  group by
+    date,
+    name
+),
+-- a member and date table needs to be generated
+tweet_activity_window_members as (
+  select
+    date,
+    name,
+    if(
+      sum(tweets) over(
+        partition by name
+        order by
+          date asc rows between 6 preceding
+          and current row
+      ) > 0,
+      1,
+      0
+    ) active_last_7_days
+  from
+    members_unnest
+    left join tweet_activity_window_tweets using(date, name)
+  where
+    date >= date_checkpoint_minus_6
+),
+tweet_activity_incremental_update as (
+  select
+    *
+  from
+    tweet_activity_window_members
+  where
+    date >= date_checkpoint
 )
+${when(incremental(), `
+select
+  join_followers.*,
+  tweet_activity_incremental_update.active_last_7_days
+from
+  join_followers left join tweet_activity_incremental_update using(date, name)
+`
+,`
 select
   *,
   -- doesn't work with incremental refresh
@@ -207,15 +261,20 @@ select
   ) active_last_7_days
 from
   join_followers
-order by
-  name,
-  date asc
+`)}
 
 pre_operations {
+  -- max date of data already existing in the table
   declare date_checkpoint default (
     select
       max(date)
     from
       ${self()}
+  );
+  -- some more data from the past is needed for some calculations
+  -- used for the last 7 days window
+  declare date_checkpoint_minus_6 default (
+    select
+      date_checkpoint - 6
   );
 }
