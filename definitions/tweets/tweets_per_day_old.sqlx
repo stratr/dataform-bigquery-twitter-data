@@ -1,14 +1,14 @@
 config {
-  type: "table",
+  type: "incremental",
+  uniqueKey: ["unique_id"],
   tags: ["tweets"],
   description: "Tweets per day from each member of parliament.",
   bigquery: {
     partitionBy: "date_trunc(date, MONTH)",
-    clusterBy: ["party", "name"]
+    clusterBy: ["party", "name"],
+    updatePartitionFilter: "date >= current_date()-5"
   },
-  columns: {
-    active_last_7_days: "Has the user posted something on Twitter in the last 7 days, including current date."
-  }
+  disabled: true
 }
 
 js {
@@ -17,6 +17,8 @@ js {
       CURRENT_DATE(),
       INTERVAL 1 DAY
     )`;
+
+  const incrementalFilter = `date >= date_checkpoint`;
 }
 
 with tweets_daily as (
@@ -29,7 +31,7 @@ with tweets_daily as (
     array_concat_agg(mp_mentions) as mp_mentions,
     array_concat_agg(hashtags) as hashtags
   from
-    ${ref("tweets")}
+    ${ref("tweets")} ${when(incremental(), `where ${incrementalFilter}`)}
   group by
     date,
     name
@@ -55,6 +57,13 @@ members_unnest as (
     date >= term_start
     and date <= term_end
 ),
+-- same as previous but with the incremental filter
+members_unnest_incremental as (
+  select
+    *
+  from
+    members_unnest ${when(incremental(), `where ${incrementalFilter}`)}
+),
 ministers as (
   select
     *,
@@ -74,6 +83,12 @@ ministers_unnest as (
     date >= term_start
     and date <= term_end
 ),
+ministers_unnest_incremental as (
+  select
+    *
+  from
+    ministers_unnest ${when(incremental(), `where ${incrementalFilter}`)}
+),
 -- the reverse of the mp_mentions, which other mps have mentioned the selected mp
 mentioned_by as (
   select
@@ -87,7 +102,7 @@ mentioned_by as (
   from
     tweets_daily A,
     unnest(mp_mentions) as mentions
-    left join members_unnest B on A.name = B.name
+    left join members_unnest_incremental B on A.name = B.name
     and A.date = B.date
 ),
 -- similar data structure as the mp_mentions array
@@ -121,12 +136,12 @@ join_data as (
     D.role as government_role,
     D.government_name
   from
-    members_unnest A
+    members_unnest_incremental A
     left join tweets_daily B on A.date = B.date
     and A.name = B.name
     left join mentioned_by_nested C on A.date = C.date
     and A.name = C.mentioned_name
-    left join ministers_unnest D on A.date = D.date
+    left join ministers_unnest_incremental D on A.date = D.date
     and A.name = D.name
 ),
 -- this gets the last followers amount for each mp
@@ -180,9 +195,61 @@ join_followers as (
     join_data A
     left join last_followers B on A.name = B.name
     and A.date = B.date
+),
+-- data required for getting the 7 day twitter activity on incremental refreshes
+tweet_activity_window_tweets as (
+  select
+    date,
+    name,
+    COUNT(DISTINCT id_str) as tweets
+  from
+    ${ref("tweets")}
+  where
+    date >= date_checkpoint_minus_6
+  group by
+    date,
+    name
+),
+-- a member and date table needs to be generated
+tweet_activity_window_members as (
+  select
+    date,
+    name,
+    if(
+      sum(tweets) over(
+        partition by name
+        order by
+          date asc rows between 6 preceding
+          and current row
+      ) > 0,
+      1,
+      0
+    ) active_last_7_days
+  from
+    members_unnest
+    left join tweet_activity_window_tweets using(date, name)
+  where
+    date >= date_checkpoint_minus_6
+),
+tweet_activity_incremental_update as (
+  select
+    *
+  from
+    tweet_activity_window_members
+  where
+    date >= date_checkpoint
 )
+${when(incremental(), `
+select
+  join_followers.*,
+  tweet_activity_incremental_update.active_last_7_days
+from
+  join_followers left join tweet_activity_incremental_update using(date, name)
+`
+,`
 select
   *,
+  -- doesn't work with incremental refresh
   if(
     sum(tweets) over(
       partition by name
@@ -195,3 +262,20 @@ select
   ) active_last_7_days
 from
   join_followers
+`)}
+
+pre_operations {
+  -- max date of data already existing in the table
+  declare date_checkpoint default (
+    select
+      max(date)
+    from
+      ${self()}
+  );
+  -- some more data from the past is needed for some calculations
+  -- used for the last 7 days window
+  declare date_checkpoint_minus_6 default (
+    select
+      date_checkpoint - 6
+  );
+}
