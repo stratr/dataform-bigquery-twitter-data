@@ -167,29 +167,49 @@ last_followers as (
     daily_followers A
     right join members_unnest B on A.date = B.date
     and A.name = B.name
+),
+join_followers as (
+  select
+    farm_fingerprint(concat(A.name, A.date, A.party)) as unique_id,
+    A.*
+  except(user_followers),
+    if(
+      A.date < '2020-01-01',
+      null,
+      B.user_followers
+    ) as user_followers,
+    if(
+      A.date < '2020-01-01',
+      null,
+      B.user_followers - lag(B.user_followers) over(
+        partition by A.name
+        order by
+          A.date asc
+      )
+    ) as user_followers_change
+  from
+    join_data A
+    left join last_followers B on A.name = B.name
+    and A.date = B.date
 )
 select
-  farm_fingerprint(concat(A.name, A.date, A.party)) as unique_id,
-  A.*
-except(user_followers),
+  *,
+  -- doesn't work with incremental refresh
   if(
-    A.date < '2020-01-01',
-    null,
-    B.user_followers
-  ) as user_followers,
-  if(
-    A.date < '2020-01-01',
-    null,
-    B.user_followers - lag(B.user_followers) over(
-      partition by A.name
+    sum(tweets) over(
+      partition by name
       order by
-        A.date asc
-    )
-  ) as user_followers_change
+        date asc rows between 6 preceding
+        and current row
+    ) > 0,
+    1,
+    0
+  ) active_last_7_days
 from
-  join_data A
-  left join last_followers B on A.name = B.name
-  and A.date = B.date
+  join_followers
+order by
+  name,
+  date asc
 
 pre_operations {
   declare date_checkpoint default (
