@@ -38,10 +38,25 @@ rearrange_data as (
 format_data as (
   select
     date,
+    --PARSE_DATE("%Y%m%d", "20081225")
+    parse_date(
+      "%d.%m.%Y",
+      regexp_replace(
+        split(
+          regexp_replace(date, r"–", "-"),
+          '-'
+        ) [safe_offset(1)],
+        r"\.$",
+        ''
+      )
+    ) as survey_complete_date,
     survey_id,
     survey as survey_provider,
     safe_cast(
-      array_to_string(regexp_extract_all(trim(sample), r"\d"), '') as INT64
+      array_to_string(
+        regexp_extract_all(trim(sample), r"\d"),
+        ''
+      ) as INT64
     ) as sample,
     safe_cast(
       replace(
@@ -58,3 +73,4 @@ select
   *
 from
   format_data
+  --where survey_complete_date is null
