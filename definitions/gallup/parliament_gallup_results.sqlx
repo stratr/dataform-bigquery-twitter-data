@@ -1,0 +1,60 @@
+config {
+  type: "view"
+}
+
+with raw_data as (
+  select
+    farm_fingerprint(coalesce(date, survey)) as survey_id,
+    row_number() over(partition by date, survey) as unique_row_num,
+    *
+  except(Johto)
+  from
+    `tanelis.gallup.eduskuntavaalit`
+),
+rearrange_data as (
+  select
+    *
+  except(unique_row_num)
+  from
+    raw_data unpivot(
+      support FOR party IN (
+        SDP,
+        PS,
+        KOK,
+        KESK,
+        VIHR,
+        VAS,
+        RKP,
+        KD,
+        LIIK,
+        Muut,
+        Hallitus,
+        Oppositio
+      )
+    )
+  where
+    unique_row_num = 1
+),
+format_data as (
+  select
+    date,
+    survey_id,
+    survey as survey_provider,
+    safe_cast(
+      array_to_string(regexp_extract_all(trim(sample), r"\d"), '') as INT64
+    ) as sample,
+    safe_cast(
+      replace(
+        trim(support),
+        ',',
+        '.'
+      ) as FLOAT64
+    ) as support,
+    party
+  from
+    rearrange_data
+)
+select
+  *
+from
+  format_data
