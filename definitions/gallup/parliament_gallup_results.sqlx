@@ -65,7 +65,21 @@ format_data as (
         '.'
       ) as FLOAT64
     ) as support,
-    party
+    party as party_short,
+    (
+      case
+        when party = "PS" then "Perussuomalaiset"
+        when party = "SDP" then "Sosiaalidemokraatit"
+        when party = "KOK" then "Kokoomus"
+        when party = "VIHR" then "Vihreät"
+        when party = "KESK" then "Keskusta"
+        when party = "VAS" then "Vasemmistoliitto"
+        when party = "RKP" then "Ruotsalainen kansanpuolue"
+        when party = "KD" then "Kristillisdemokraatit"
+        when party = "LIIK" then "Liike Nyt"
+        else party
+      end
+    ) as party
   from
     rearrange_data
 )
