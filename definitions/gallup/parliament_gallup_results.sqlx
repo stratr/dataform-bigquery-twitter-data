@@ -50,6 +50,12 @@ format_data as (
         ''
       )
     ) as survey_complete_date,
+    concat(
+      split(
+        regexp_replace(date, r"–", "-"),
+        '-'
+      ) [safe_offset(0)]
+    ) as date_part_1,
     survey_id,
     survey as survey_provider,
     safe_cast(
@@ -82,9 +88,40 @@ format_data as (
     ) as party
   from
     rearrange_data
+),
+format_data2 as (
+  select
+    *,
+    safe_cast(
+      if(
+        regexp_contains(date_part_1, r"\.\d{4}$"),
+        date_part_1,
+        concat(
+          regexp_replace(date_part_1, r"\.+$", ''),
+          '.',
+          extract(
+            year
+            from
+              survey_complete_date
+          )
+        )
+      ) as date format 'DD.MM.YYYY'
+    ) as survey_start_date
+  from
+    format_data
 )
 select
-  *
+  survey_id,
+  survey_start_date,
+  survey_complete_date,
+  date as source_data_date,
+  survey_provider,
+  sample,
+  support,
+  party_short,
+  party
 from
-  format_data
+  format_data2
+  -- where
+  --   survey_start_date is null
   --where survey_complete_date is null
