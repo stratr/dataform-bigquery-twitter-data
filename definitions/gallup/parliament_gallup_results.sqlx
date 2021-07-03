@@ -1,5 +1,6 @@
 config {
-  type: "view"
+  type: "view",
+  description: "Clean the raw data fetched from https://fi.wikipedia.org/wiki/Puoluekannatus_Suomessa"
 }
 
 js {

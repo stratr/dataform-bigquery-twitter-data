@@ -1,0 +1,12 @@
+config {
+  type: "table",
+  description: "Gallup results for the 2019 election.",
+  disabled: true
+}
+
+select
+  *
+from
+  ${resolve('parliament_gallup_results')}
+where
+  election_year = 2019
