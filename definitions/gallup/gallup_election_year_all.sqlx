@@ -1,0 +1,18 @@
+config {
+  type: "table",
+  description: "Gallup results for all election years."
+}
+
+select
+  *
+from
+  ${resolve('parliament_gallup_results')}
+where
+  election_year = 2023
+union all
+select
+  *
+from
+  ${resolve('gallup_election_year_2019')}
+order by
+  survey_complete_date desc
