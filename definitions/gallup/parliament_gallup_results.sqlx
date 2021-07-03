@@ -2,126 +2,119 @@ config {
   type: "view"
 }
 
+js {
+  const unpivotColumns = [
+    'VAS',
+    'RKP',
+    'KD',
+    'VIHR',
+    'KOK',
+    'SDP',
+    'LIIK',
+    'PS',
+    'KESK',
+    'SIN',
+    'Muut'
+  ];
+
+  const unpivotArray = unpivotColumns.map(col => {
+    return `select as struct (
+      case "${col}"
+        when "PS" then "Perussuomalaiset"
+        when "SDP" then "Sosiaalidemokraatit"
+        when "KOK" then "Kokoomus"
+        when "VIHR" then "Vihreät"
+        when "KESK" then "Keskusta"
+        when "VAS" then "Vasemmistoliitto"
+        when "RKP" then "Ruotsalainen kansanpuolue"
+        when "KD" then "Kristillisdemokraatit"
+        when "LIIK" then "Liike Nyt"
+        when "SIN" then "Siniset"
+        else "${col}"
+      end
+      ) as party,
+    safe_cast(replace(${col}, ',', '.') as float64) as support`;
+  }).join(`
+  union all
+  `);
+}
+
 with raw_data as (
   select
     farm_fingerprint(coalesce(date, survey)) as survey_id,
     row_number() over(partition by date, survey) as unique_row_num,
     *
-  except(Johto)
   from
     `tanelis.gallup.eduskuntavaalit`
 ),
-rearrange_data as (
-  select
-    *
-  except(unique_row_num)
-  from
-    raw_data unpivot(
-      support FOR party IN (
-        SDP,
-        PS,
-        KOK,
-        KESK,
-        VIHR,
-        VAS,
-        RKP,
-        KD,
-        LIIK,
-        Muut,
-        Hallitus,
-        Oppositio
-      )
-    )
-  where
-    unique_row_num = 1
-),
 format_data as (
   select
-    date,
-    --PARSE_DATE("%Y%m%d", "20081225")
-    parse_date(
-      "%d.%m.%Y",
-      regexp_replace(
-        split(
-          regexp_replace(date, r"–", "-"),
-          '-'
-        ) [safe_offset(1)],
-        r"\.$",
-        ''
-      )
-    ) as survey_complete_date,
-    concat(
-      split(
-        regexp_replace(date, r"–", "-"),
-        '-'
-      ) [safe_offset(0)]
-    ) as date_part_1,
     survey_id,
-    survey as survey_provider,
+    date as date_raw,
+    safe_cast(
+      regexp_replace(
+        regexp_replace(date, r"\.$", ''),
+        r"^[^–-]+[–-]",
+        ''
+      ) as date format "DD.MM.YYYY"
+    ) as survey_complete_date,
+    survey,
     safe_cast(
       array_to_string(
         regexp_extract_all(trim(sample), r"\d"),
         ''
       ) as INT64
     ) as sample,
-    safe_cast(
-      replace(
-        trim(support),
-        ',',
-        '.'
-      ) as FLOAT64
-    ) as support,
-    party as party_short,
-    (
-      case
-        when party = "PS" then "Perussuomalaiset"
-        when party = "SDP" then "Sosiaalidemokraatit"
-        when party = "KOK" then "Kokoomus"
-        when party = "VIHR" then "Vihreät"
-        when party = "KESK" then "Keskusta"
-        when party = "VAS" then "Vasemmistoliitto"
-        when party = "RKP" then "Ruotsalainen kansanpuolue"
-        when party = "KD" then "Kristillisdemokraatit"
-        when party = "LIIK" then "Liike Nyt"
-        else party
-      end
-    ) as party
+    safe_cast(election_year as int64) as election_year,
+    results.party,
+    results.support,
+    regexp_extract(date, r"^(\d.*)[–-]") as date_part_1
   from
-    rearrange_data
+    raw_data,
+    unnest(array(${unpivotArray})) as results
+  where
+    unique_row_num = 1
 ),
 format_data2 as (
   select
-    *,
-    safe_cast(
-      if(
-        regexp_contains(date_part_1, r"\.\d{4}$"),
-        date_part_1,
-        concat(
-          regexp_replace(date_part_1, r"\.+$", ''),
-          '.',
-          extract(
-            year
-            from
-              survey_complete_date
-          )
+    survey_id,
+    (
+      case
+        -- when date, month and year exist
+        when regexp_contains(date_part_1, r"\d{1,2}\.\d{1,2}\.\d+\.?") then safe_cast(
+          date_part_1 as date format "DD.MM.YYYY"
         )
-      ) as date format 'DD.MM.YYYY'
-    ) as survey_start_date
+        -- when date and month exist
+        when regexp_contains(date_part_1, r"\d{1,2}\.\d{1,2}\.?$") then safe_cast(
+          array_to_string(
+            [regexp_extract(date_part_1, r"(\d+)"),
+          regexp_extract(date_part_1, r"\d+\.(\d+)"),
+          cast(extract(year from survey_complete_date) as string)],
+            '.'
+          ) as date format "DD.MM.YYYY"
+        )
+        -- when only the day is available
+        when regexp_contains(date_part_1, r"\d{1,2}\.?$") then safe_cast(
+          array_to_string(
+            [regexp_extract(date_part_1, r"\d+"),
+          cast(extract(month from survey_complete_date) as string),
+          cast(extract(year from survey_complete_date) as string)],
+            '.'
+          ) as date format "DD.MM.YYYY"
+        )
+      end
+    ) as survey_start_date,
+    survey_complete_date,
+    date_raw,
+    survey,
+    sample,
+    election_year,
+    party,
+    support
   from
     format_data
 )
 select
-  survey_id,
-  survey_start_date,
-  survey_complete_date,
-  date as source_data_date,
-  survey_provider,
-  sample,
-  support,
-  party_short,
-  party
+  *
 from
   format_data2
-  -- where
-  --   survey_start_date is null
-  --where survey_complete_date is null
