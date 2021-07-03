@@ -1,5 +1,5 @@
 config {
-  type: "view"
+  type: "table"
 }
 
 with gallup_data as (
@@ -49,7 +49,9 @@ except(dates_valid),
     partition by party
     order by
       date asc
-  ) as support_365_days_ago
+  ) as support_365_days_ago,
+  max(support) over(partition by party) as highest_support_alltime,
+  min(support) over(partition by party) as lowest_support_alltime
 from
   gallup_data,
   unnest(dates_valid) as date
