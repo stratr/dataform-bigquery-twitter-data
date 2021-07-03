@@ -1,0 +1,59 @@
+config {
+  type: "view"
+}
+
+with gallup_data as (
+  select
+    generate_date_array(
+      survey_complete_date,
+      coalesce(
+        lead(survey_complete_date) over(
+          partition by party
+          order by
+            survey_complete_date asc
+        ) -1,
+        current_date()
+      )
+    ) as dates_valid,
+    -- dates where this survey has been the latest data (before the next survey results come in)
+    survey_complete_date,
+    survey_start_date,
+    survey,
+    party,
+    support,
+    -- (
+    --   support / lag(support) over(
+    --     partition by party
+    --     order by
+    --       survey_complete_date asc
+    --   )
+    -- ) - 1 as support_change_vs_previous
+  from
+    ${ref('gallup_election_year_all')}
+)
+select
+  date,
+  gallup_data.*
+except(dates_valid),
+  lag(support, 90) over(
+    partition by party
+    order by
+      date asc
+  ) as support_90_days_ago,
+  lag(support, 180) over(
+    partition by party
+    order by
+      date asc
+  ) as support_180_days_ago,
+  lag(support, 365) over(
+    partition by party
+    order by
+      date asc
+  ) as support_365_days_ago
+from
+  gallup_data,
+  unnest(dates_valid) as date
+where
+  party = 'Kokoomus'
+order by
+  date desc
