@@ -21,6 +21,13 @@
           "tags": [
             "daily"
           ]
+        },
+        {
+          "name": "Monday weekly",
+          "cron": "0 5 * * mon",
+          "tags": [
+            "weekly_mon"
+          ]
         }
       ],
       "gitRef": "master"
