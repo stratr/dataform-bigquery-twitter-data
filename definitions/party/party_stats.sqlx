@@ -21,13 +21,13 @@ with gallup_data as (
     survey,
     party,
     support,
-    -- (
-    --   support / lag(support) over(
-    --     partition by party
-    --     order by
-    --       survey_complete_date asc
-    --   )
-    -- ) - 1 as support_change_vs_previous
+    (
+      support / lag(support) over(
+        partition by party
+        order by
+          survey_complete_date asc
+      )
+    ) - 1 as support_change_vs_previous_gallup
   from
     ${ref('gallup_election_year_all')}
 )
