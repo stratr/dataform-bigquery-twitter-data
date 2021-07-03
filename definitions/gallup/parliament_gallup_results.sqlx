@@ -119,3 +119,5 @@ select
   *
 from
   format_data2
+where
+  survey not in ('Vaalitulos', 'Kuntavaalit 2017')

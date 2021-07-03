@@ -4,16 +4,29 @@ config {
   tags: ['weekly_mon']
 }
 
+with gallup_results as (
+  select
+    *
+  from
+    ${resolve('parliament_gallup_results')}
+  where
+    election_year = 2023
+  union all
+  select
+    *
+  from
+    ${resolve('gallup_election_year_2019')}
+)
 select
-  *
+  *,
+  last_value(support) over(
+    partition by party
+    order by
+      survey_complete_date asc rows between unbounded preceding
+      and unbounded following
+  ) as support_latest,
+  max(support) over(partition by party) as support_max
 from
-  ${resolve('parliament_gallup_results')}
-where
-  election_year = 2023
-union all
-select
-  *
-from
-  ${resolve('gallup_election_year_2019')}
+  gallup_results
 order by
   survey_complete_date desc
