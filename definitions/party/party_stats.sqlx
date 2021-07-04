@@ -1,5 +1,6 @@
 config {
-  type: "table"
+  type: "table",
+  description: "Party-level aggregated stats on a daily level."
 }
 
 with gallup_data as (
@@ -30,32 +31,80 @@ with gallup_data as (
     ) - 1 as support_change_vs_previous_gallup
   from
     ${ref('gallup_election_year_all')}
+),
+gallup_data2 as (
+  select
+    date,
+    gallup_data.*
+  except(dates_valid),
+    lag(support, 90) over(
+      partition by party
+      order by
+        date asc
+    ) as support_90_days_ago,
+    lag(support, 180) over(
+      partition by party
+      order by
+        date asc
+    ) as support_180_days_ago,
+    lag(support, 365) over(
+      partition by party
+      order by
+        date asc
+    ) as support_365_days_ago,
+    max(support) over(partition by party) as highest_support_alltime,
+    min(support) over(partition by party) as lowest_support_alltime
+  from
+    gallup_data,
+    unnest(dates_valid) as date
+),
+party_followers as (
+  select
+    date,
+    party,
+    sum(user_followers) as user_followers
+  from
+    ${resolve('tweets_per_day')}
+  group by
+    date,
+    party
+),
+party_followers2 as (
+  select
+    *,
+    lag(user_followers, 1) over(
+      partition by party
+      order by
+        date asc
+    ) as user_followers_1_day_ago,
+    lag(user_followers, 30) over(
+      partition by party
+      order by
+        date asc
+    ) as user_followers_30_days_ago,
+    lag(user_followers, 90) over(
+      partition by party
+      order by
+        date asc
+    ) as user_followers_90_days_ago,
+    lag(user_followers, 180) over(
+      partition by party
+      order by
+        date asc
+    ) as user_followers_180_days_ago,
+    lag(user_followers, 365) over(
+      partition by party
+      order by
+        date asc
+    ) as user_followers_365_days_ago,
+  from
+    party_followers
 )
 select
-  date,
-  gallup_data.*
-except(dates_valid),
-  lag(support, 90) over(
-    partition by party
-    order by
-      date asc
-  ) as support_90_days_ago,
-  lag(support, 180) over(
-    partition by party
-    order by
-      date asc
-  ) as support_180_days_ago,
-  lag(support, 365) over(
-    partition by party
-    order by
-      date asc
-  ) as support_365_days_ago,
-  max(support) over(partition by party) as highest_support_alltime,
-  min(support) over(partition by party) as lowest_support_alltime
+  *
 from
-  gallup_data,
-  unnest(dates_valid) as date
-where
-  party = 'Kokoomus'
+  gallup_data2
+  left join party_followers2 using(date, party)
 order by
-  date desc
+  date desc,
+  support desc
