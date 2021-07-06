@@ -4,60 +4,22 @@ config {
   columns: {
     name: "First and last name",
     nominee_id: "Unique id for the nominee",
-    votes_grouping: "How the data has been grouped by. One must be selected. All data exists on the same table."
+    votes_grouping_level: "How the data has been grouped by. One must be selected. All data exists on the same table.",
+    election: "The type of election result, e.g. eduskuntavaalit."
   }
 }
 
 select
-  concat(
-    trim(henkilon_etunimi),
-    ' ',
-    trim(henkilon_sukunimi)
-  ) as name,
-  concat(ehdokasnumero, vaalipiiri___maakuntanro) as nominee_id,
-  safe_cast(ennakkoaanet_lkm as int64) as preliminary_votes,
-  safe_cast(vaalipaivan_aanet_lkm as int64) as election_day_votes,
-  safe_cast(aanet_yhteensa_lkm as int64) as total_votes,
-  if(
-    trim(valintatieto) = '1',
-    true,
-    false
-  ) as elected,
-      (
-        case
-          trim(alueen_tyyppi)
-          when 'A' then 'äänestysalue'
-          when 'K' then 'kunta'
-          when 'M' then 'maakunta'
-          when 'V' then 'vaalipiiri'
-          when 'M' then 'koko maa'
-        end
-      ) as votes_grouping,
   (
-    select
-      as struct henkilon_etunimi,
-      henkilon_sukunimi,
-      ehdokasnumero,
-      sukupuoli,
-      ika_vaalipaivana,
-      ammatti,
-      kotikunnan_koodi,
-      kotikunnan_nimi_suomeksi,
-      ehdokkaan_aidinkieli
-  ) as nominee,
-  (
-    select
-      as struct europarlamentaarikko,
-      kansanedustaja,
-      kunnanvaltuutettu,
-      maakuntavaltuutettu
-  ) as responsibilities,
-  (
-    select
-      as struct valintatieto,
-      vertausluku,
-      lopullinen_sija
-  ) as result,
+    case
+      trim(alueen_tyyppi)
+      when 'A' then 'äänestysalue'
+      when 'K' then 'kunta'
+      when 'M' then 'maakunta'
+      when 'V' then 'vaalipiiri'
+      when 'M' then 'koko maa'
+    end
+  ) as votes_grouping_level,
   (
     case
       trim(vaalilaji)
@@ -67,28 +29,61 @@ select
       when 'EPV' then 'europarlamenttivaalit'
       when 'MKV' then 'maakuntavaalit'
     end
-  ) as vaalilaji,
+  ) as election,
+  concat(
+    trim(henkilon_etunimi),
+    ' ',
+    trim(henkilon_sukunimi)
+  ) as name,
+  concat(ehdokasnumero, vaalipiiri___maakuntanro) as nominee_election_id,
+  trim(ehdokasnumero) as nominee_election_number,
+  trim(pysyva_puoluetunniste) as party_code,
+  trim(puolueen_ryhman_nimilyhenne_suomeksi) as party_short,
+  safe_cast(ennakkoaanet_lkm as int64) as preliminary_votes,
+  safe_cast(vaalipaivan_aanet_lkm as int64) as election_day_votes,
+  safe_cast(aanet_yhteensa_lkm as int64) as total_votes,
+  trim(sukupuoli) as gender,
+  trim(ika_vaalipaivana) as age_election_day,
+  trim(ammatti) as profession,
+  trim(kotikunnan_koodi) as home_town_code,
+  trim(kotikunnan_nimi_suomeksi) as home_town,
+  trim(ehdokkaan_aidinkieli) as nominee_language,
+  if(
+    trim(valintatieto) = '1',
+    true,
+    false
+  ) as elected,
   (
     select
-      as struct vaalipiiri___maakuntanro,
-      kuntanro,
-      (
-        case
-          trim(alueen_tyyppi)
-          when 'A' then 'äänestysalue'
-          when 'K' then 'kunta'
-          when 'M' then 'maakunta'
-          when 'V' then 'vaalipiiri'
-          when 'M' then 'koko maa'
-        end
-      ) as alueen_tyyppi,
-      kunnan_vaalipiirin__maakunnan__aanestysalueen_nimi_suomeksi
-  ) as area,
+      as struct if(
+        trim(europarlamentaarikko) = '1',
+        true,
+        false
+      ) as european_parliament,
+      if(
+        trim(kansanedustaja) = '1',
+        true,
+        false
+      ) as finnish_parliament,
+      if(
+        trim(kunnanvaltuutettu) = '1',
+        true,
+        false
+      ) as municipal_parliament,
+      if(
+        trim(maakuntavaltuutettu) = '1',
+        true,
+        false
+      ) as county_parliament,
+  ) as responsibilities,
   (
     select
-      as struct pysyva_puoluetunniste,
-      vakiopuoluenumero,
-      puolueen_ryhman_nimilyhenne_suomeksi
-  ) as party
+      as struct valintatieto,
+      vertausluku,
+      lopullinen_sija
+  ) as result,
+  kunnan_vaalipiirin__maakunnan__aanestysalueen_nimi_suomeksi as vote_area,
+  vaalipiiri___maakuntanro as electoral_district_number,
+  kuntanro as municipality_number
 from
   `tanelis.election_results.ekv-2019_teat_maa`
