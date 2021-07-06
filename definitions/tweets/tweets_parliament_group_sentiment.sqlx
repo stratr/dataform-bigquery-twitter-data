@@ -7,6 +7,8 @@ config {
   tags: ['daily']
 }
 
+-- incremental refresh ei toimi oikein
+
 WITH min_prediction_date as (
   select
     max(max_date_training_data) as min_date
