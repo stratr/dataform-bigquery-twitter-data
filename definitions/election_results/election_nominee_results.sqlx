@@ -53,6 +53,11 @@ nominee_results as (
     concat(ehdokasnumero, vaalipiiri___maakuntanro) as nominee_election_id,
     lopullinen_sija as rank_in_electoral_district,
     vertausluku as comparison_number,
+    if(
+      trim(valintatieto) = '1',
+      true,
+      false
+    ) as elected,
     row_number() over(
       partition by ehdokasnumero,
       vaalipiiri___maakuntanro
@@ -73,16 +78,19 @@ select
   --     when 'M' then 'koko maa'
   --   end
   -- ) as votes_grouping_level,
-  concat((
-    case
-      trim(vaalilaji)
-      when 'PV' then 'presidentinvaalit'
-      when 'E' then 'eduskuntavaalit'
-      when 'K' then 'kunnallisvaalit'
-      when 'EPV' then 'europarlamenttivaalit'
-      when 'MKV' then 'maakuntavaalit'
-    end
-  ), '_2019') as election,
+  concat(
+    (
+      case
+        trim(vaalilaji)
+        when 'PV' then 'presidentinvaalit'
+        when 'E' then 'eduskuntavaalit'
+        when 'K' then 'kunnallisvaalit'
+        when 'EPV' then 'europarlamenttivaalit'
+        when 'MKV' then 'maakuntavaalit'
+      end
+    ),
+    '_2019'
+  ) as election,
   B.electoral_district_name,
   C.municipality_name,
   trim(
@@ -118,11 +126,7 @@ select
   D.rank_in_electoral_district,
   D.comparison_number,
   safe_cast(aanet_yhteensa_lkm as int64) as total_votes,
-    if(
-    trim(valintatieto) = '1',
-    true,
-    false
-  ) as elected,
+  D.elected,
   (
     case
       trim(sukupuoli)
