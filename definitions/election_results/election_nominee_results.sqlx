@@ -97,9 +97,32 @@ select
   trim(ehdokasnumero) as nominee_election_number,
   trim(pysyva_puoluetunniste) as party_code,
   trim(puolueen_ryhman_nimilyhenne_suomeksi) as party_short,
+  (
+    case
+      trim(puolueen_ryhman_nimilyhenne_suomeksi)
+      when "PS" then "Perussuomalaiset"
+      when "SDP" then "Sosiaalidemokraatit"
+      when "KOK" then "Kokoomus"
+      when "VIHR" then "Vihreät"
+      when "KESK" then "Keskusta"
+      when "VAS" then "Vasemmistoliitto"
+      when "RKP" then "Ruotsalainen kansanpuolue"
+      when "KD" then "Kristillisdemokraatit"
+      when "LIIK" then "Liike Nyt"
+      when "SIN" then "Siniset"
+      else null
+    end
+  ) as party,
   safe_cast(ennakkoaanet_lkm as int64) as preliminary_votes,
   safe_cast(vaalipaivan_aanet_lkm as int64) as election_day_votes,
+  D.rank_in_electoral_district,
+  D.comparison_number,
   safe_cast(aanet_yhteensa_lkm as int64) as total_votes,
+    if(
+    trim(valintatieto) = '1',
+    true,
+    false
+  ) as elected,
   (
     case
       trim(sukupuoli)
@@ -108,15 +131,10 @@ select
       else 'other'
     end
   ) as gender,
-  trim(ika_vaalipaivana) as age_election_day,
+  safe_cast(trim(ika_vaalipaivana) as int64) as age_election_day,
   trim(ammatti) as profession,
   trim(kotikunnan_nimi_suomeksi) as home_town,
   trim(ehdokkaan_aidinkieli) as nominee_language,
-  if(
-    trim(valintatieto) = '1',
-    true,
-    false
-  ) as elected,
   (
     select
       as struct if(
@@ -139,18 +157,12 @@ select
         true,
         false
       ) as county_parliament,
-  ) as responsibilities,
-  (
-    select
-      as struct vertausluku,
-      lopullinen_sija
-  ) as result,
-  vertausluku,
-  lopullinen_sija
+  ) as responsibilities
 from
   `tanelis.election_results.ekv-2019_teat_maa`
   left join electoral_districts B using(vaalipiiri___maakuntanro)
   left join municipalities C using(kuntanro)
+  left join nominee_results D on D.nominee_election_id = concat(ehdokasnumero, vaalipiiri___maakuntanro)
 where
   trim(alueen_tyyppi) = 'A'
   -- the highest detail grouping: voting area level
