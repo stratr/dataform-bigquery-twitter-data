@@ -4,7 +4,7 @@ config {
   columns: {
     name: "First and last name",
     nominee_id: "Unique id for the nominee",
-    election: "The type of election result, e.g. eduskuntavaalit."
+    election: "The type of election result, e.g. eduskuntavaalit_2019."
   }
 }
 
@@ -73,7 +73,7 @@ select
   --     when 'M' then 'koko maa'
   --   end
   -- ) as votes_grouping_level,
-  (
+  concat((
     case
       trim(vaalilaji)
       when 'PV' then 'presidentinvaalit'
@@ -82,7 +82,7 @@ select
       when 'EPV' then 'europarlamenttivaalit'
       when 'MKV' then 'maakuntavaalit'
     end
-  ) as election,
+  ), '_2019') as election,
   B.electoral_district_name,
   C.municipality_name,
   trim(
