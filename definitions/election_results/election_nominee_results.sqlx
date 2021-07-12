@@ -8,6 +8,8 @@ config {
   }
 }
 
+-- 2015: https://tulospalvelu.vaalit.fi/E-2015/fi/ladattavat_tiedostot.html
+
 with electoral_districts as (
   select
     vaalipiiri___maakuntanro,
@@ -29,17 +31,25 @@ municipalities as (
     kuntanro,
     trim(
       regexp_replace(
-        kunnan_vaalipiirin__maakunnan__aanestysalueen_nimi_suomeksi,
-        r"�ä",
-        "ää"
+        regexp_replace(
+          kunnan_vaalipiirin__maakunnan__aanestysalueen_nimi_suomeksi,
+          r"�ä",
+          "ää"
+        ),
+        r"�ö",
+        "öö"
       )
     ) as municipality_name,
     row_number() over(
       partition by trim(
         regexp_replace(
-          kunnan_vaalipiirin__maakunnan__aanestysalueen_nimi_suomeksi,
-          r"�ä",
-          "ää"
+          regexp_replace(
+            kunnan_vaalipiirin__maakunnan__aanestysalueen_nimi_suomeksi,
+            r"�ä",
+            "ää"
+          ),
+          r"�ö",
+          "öö"
         )
       )
     ) as distinct_row_num
@@ -51,7 +61,7 @@ municipalities as (
 nominee_results as (
   select
     concat(ehdokasnumero, vaalipiiri___maakuntanro) as nominee_election_id,
-    lopullinen_sija as rank_in_electoral_district,
+    safe_cast(lopullinen_sija as int64) as rank_in_electoral_district,
     vertausluku as comparison_number,
     if(
       trim(valintatieto) = '1',
@@ -78,18 +88,16 @@ select
   --     when 'M' then 'koko maa'
   --   end
   -- ) as votes_grouping_level,
-  concat(
-    (
-      case
-        trim(vaalilaji)
-        when 'PV' then 'presidentinvaalit'
-        when 'E' then 'eduskuntavaalit'
-        when 'K' then 'kunnallisvaalit'
-        when 'EPV' then 'europarlamenttivaalit'
-        when 'MKV' then 'maakuntavaalit'
-      end
-    ),
-    '_2019'
+  2019 as year,
+  (
+    case
+      trim(vaalilaji)
+      when 'PV' then 'presidentinvaalit'
+      when 'E' then 'eduskuntavaalit'
+      when 'K' then 'kunnallisvaalit'
+      when 'EPV' then 'europarlamenttivaalit'
+      when 'MKV' then 'maakuntavaalit'
+    end
   ) as election,
   B.electoral_district_name,
   C.municipality_name,
@@ -97,9 +105,25 @@ select
     kunnan_vaalipiirin__maakunnan__aanestysalueen_nimi_suomeksi
   ) as voting_area_name,
   concat(
-    trim(henkilon_etunimi),
+    regexp_replace(
+      regexp_replace(
+        trim(henkilon_etunimi),
+        r"�ä",
+        "ää"
+      ),
+      r"�ö",
+      "öö"
+    ),
     ' ',
-    trim(henkilon_sukunimi)
+    regexp_replace(
+      regexp_replace(
+        trim(henkilon_sukunimi),
+        r"�ä",
+        "ää"
+      ),
+      r"�ö",
+      "öö"
+    )
   ) as name,
   concat(ehdokasnumero, vaalipiiri___maakuntanro) as nominee_election_id,
   trim(ehdokasnumero) as nominee_election_number,
@@ -138,8 +162,24 @@ select
     end
   ) as gender,
   safe_cast(trim(ika_vaalipaivana) as int64) as age_election_day,
-  trim(ammatti) as profession,
-  trim(kotikunnan_nimi_suomeksi) as home_town,
+  regexp_replace(
+    regexp_replace(
+      trim(ammatti),
+      r"�ä",
+      "ää"
+    ),
+    r"�ö",
+    "öö"
+  ) as profession,
+  regexp_replace(
+    regexp_replace(
+      trim(kotikunnan_nimi_suomeksi),
+      r"�ä",
+      "ää"
+    ),
+    r"�ö",
+    "öö"
+  ) as home_town,
   trim(ehdokkaan_aidinkieli) as nominee_language,
   (
     select
