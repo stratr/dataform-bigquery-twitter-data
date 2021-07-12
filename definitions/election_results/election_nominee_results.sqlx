@@ -115,8 +115,10 @@ select
       when "KESK" then "Keskusta"
       when "VAS" then "Vasemmistoliitto"
       when "RKP" then "Ruotsalainen kansanpuolue"
+      when "FÅ" then "Ruotsalainen kansanpuolue"
       when "KD" then "Kristillisdemokraatit"
       when "LIIK" then "Liike Nyt"
+      when "Nyt" then "Liike Nyt"
       when "SIN" then "Siniset"
       else null
     end
