@@ -1,7 +1,11 @@
 config {
   type: "view"
 }
-
+-- TODO: tee tästä taulu ref()
+-- korjaa puuttuvat puoluetiedot
+-- tee sellainen, että samaan tauluun voi yhdistää muiden vaalien (eri vuodet ja eri vaalit) tulokset myös
+-- yhdistä tärkeimmät tiedot kansanedustajatauluun, esim. ammatti, kotikaupunki
+--laske sijoitus puolueen sisällä
 select
   election,
   electoral_district_name,
